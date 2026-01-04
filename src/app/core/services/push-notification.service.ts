@@ -18,11 +18,13 @@ export class PushNotificationService {
   private _permissionState = signal<PermissionState>('default');
   private _isSubscribed = signal(false);
   private _isLoading = signal(false);
+  private _isInitialized = signal(false);
 
   // Public readonly signals
   readonly permissionState = this._permissionState.asReadonly();
   readonly isSubscribed = this._isSubscribed.asReadonly();
   readonly isLoading = this._isLoading.asReadonly();
+  readonly isInitialized = this._isInitialized.asReadonly();
 
   // Computed signals
   readonly isSupported = computed(() => {
@@ -41,6 +43,7 @@ export class PushNotificationService {
     // Check browser support
     if (!this.isSupported()) {
       this._permissionState.set('unsupported');
+      this._isInitialized.set(true);
       return;
     }
 
@@ -52,6 +55,9 @@ export class PushNotificationService {
 
     // Listen for service worker messages
     this.listenForMessages();
+
+    // Mark as initialized
+    this._isInitialized.set(true);
   }
 
   async checkSubscriptionStatus(): Promise<boolean> {

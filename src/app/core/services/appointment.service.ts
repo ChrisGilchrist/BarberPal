@@ -1,17 +1,21 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, inject } from '@angular/core';
 import { SupabaseService } from './supabase.service';
+import { NotificationService } from './notification.service';
+import { AuthService } from './auth.service';
 import { Appointment, AppointmentStatus, TimeSlot, WorkingHours, TimeBlock } from '../models';
-import { format, parseISO, addMinutes, isWithinInterval, isSameDay, setHours, setMinutes } from 'date-fns';
+import { format, parseISO, addMinutes, setHours, setMinutes } from 'date-fns';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AppointmentService {
+  private supabase = inject(SupabaseService);
+  private notificationService = inject(NotificationService);
+  private authService = inject(AuthService);
+
   private appointmentsSignal = signal<Appointment[]>([]);
 
   readonly appointments = this.appointmentsSignal.asReadonly();
-
-  constructor(private supabase: SupabaseService) {}
 
   async loadAppointments(params: {
     businessId?: string;
@@ -97,9 +101,27 @@ export class AppointmentService {
 
       if (error) throw error;
 
-      this.appointmentsSignal.update(appts => [...appts, data as Appointment]);
+      const appt = data as Appointment;
+      this.appointmentsSignal.update(appts => [...appts, appt]);
 
-      return { data: data as Appointment, error: null };
+      // Send notification to client about the new appointment
+      if (appt.client_id) {
+        const serviceName = appt.service?.name || 'Appointment';
+        const appointmentDate = format(parseISO(appt.start_time), 'EEEE, MMMM d');
+        const appointmentTime = format(parseISO(appt.start_time), 'h:mm a');
+        const staffName = appt.staff ? `${appt.staff.first_name}` : 'your barber';
+
+        await this.notificationService.createNotification({
+          userId: appt.client_id,
+          type: 'appointment_scheduled',
+          title: 'Appointment Scheduled',
+          message: `Your ${serviceName} with ${staffName} is booked for ${appointmentDate} at ${appointmentTime}`,
+          appointmentId: appt.id,
+          senderId: this.authService.user()?.id,
+        });
+      }
+
+      return { data: appt, error: null };
     } catch (error: any) {
       return { data: null, error: error.message };
     }
@@ -136,7 +158,44 @@ export class AppointmentService {
   }
 
   async cancelAppointment(id: string) {
-    return this.updateStatus(id, 'cancelled');
+    // Get the appointment first to send notification
+    const { data: appt } = await this.getAppointment(id);
+
+    const result = await this.updateStatus(id, 'cancelled');
+
+    // Send notification about cancellation
+    if (result.data && appt) {
+      const currentUserId = this.authService.user()?.id;
+      const isBarberCancelling = currentUserId !== appt.client_id;
+      const serviceName = appt.service?.name || 'Appointment';
+      const appointmentDate = format(parseISO(appt.start_time), 'EEEE, MMMM d');
+      const appointmentTime = format(parseISO(appt.start_time), 'h:mm a');
+
+      if (isBarberCancelling && appt.client_id) {
+        // Barber cancelled - notify client
+        await this.notificationService.createNotification({
+          userId: appt.client_id,
+          type: 'appointment_cancelled',
+          title: 'Appointment Cancelled',
+          message: `Your ${serviceName} on ${appointmentDate} at ${appointmentTime} has been cancelled`,
+          appointmentId: id,
+          senderId: currentUserId,
+        });
+      } else if (!isBarberCancelling && appt.staff_id) {
+        // Client cancelled - notify barber
+        const clientName = appt.client ? `${appt.client.first_name} ${appt.client.last_name}` : 'A client';
+        await this.notificationService.createNotification({
+          userId: appt.staff_id,
+          type: 'appointment_cancelled',
+          title: 'Appointment Cancelled',
+          message: `${clientName} cancelled their ${serviceName} on ${appointmentDate} at ${appointmentTime}`,
+          appointmentId: id,
+          senderId: currentUserId,
+        });
+      }
+    }
+
+    return result;
   }
 
   async completeAppointment(id: string) {

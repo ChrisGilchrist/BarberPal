@@ -286,4 +286,38 @@ export class NotificationService implements OnDestroy {
     this._notifications.set([]);
     this.unsubscribeFromRealtime();
   }
+
+  /**
+   * Create a notification record in the database.
+   * This triggers the webhook which sends push notifications.
+   */
+  async createNotification(params: {
+    userId: string;
+    type: NotificationType;
+    title: string;
+    message: string;
+    appointmentId?: string;
+    senderId?: string;
+  }): Promise<boolean> {
+    try {
+      const { error } = await this.supabase.from('notifications').insert({
+        user_id: params.userId,
+        type: params.type,
+        title: params.title,
+        message: params.message,
+        appointment_id: params.appointmentId || null,
+        sender_id: params.senderId || null,
+      });
+
+      if (error) {
+        console.error('Error creating notification:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      return false;
+    }
+  }
 }

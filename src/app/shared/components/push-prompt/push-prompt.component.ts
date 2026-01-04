@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, signal, OnDestroy, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PushNotificationService } from '../../../core/services/push-notification.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -10,7 +10,7 @@ import { AuthService } from '../../../core/services/auth.service';
   templateUrl: './push-prompt.component.html',
   styleUrl: './push-prompt.component.scss',
 })
-export class PushPromptComponent implements OnInit, OnDestroy {
+export class PushPromptComponent implements OnDestroy {
   private pushService = inject(PushNotificationService);
   private authService = inject(AuthService);
 
@@ -19,9 +19,16 @@ export class PushPromptComponent implements OnInit, OnDestroy {
 
   private readonly DISMISSED_KEY = 'barberpal_push_prompt_dismissed';
   private showTimeout: ReturnType<typeof setTimeout> | null = null;
+  private hasChecked = false;
 
-  ngOnInit() {
-    this.checkShouldShow();
+  constructor() {
+    // Wait for push service to initialize before checking
+    effect(() => {
+      if (this.pushService.isInitialized() && !this.hasChecked) {
+        this.hasChecked = true;
+        this.checkShouldShow();
+      }
+    });
   }
 
   ngOnDestroy() {
@@ -46,6 +53,11 @@ export class PushPromptComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Don't show if permission already granted (user already enabled notifications)
+    if (this.pushService.permissionState() === 'granted') {
+      return;
+    }
+
     // Don't show if permission already denied
     if (this.pushService.permissionState() === 'denied') {
       return;
@@ -62,7 +74,10 @@ export class PushPromptComponent implements OnInit, OnDestroy {
     // Show after a delay (give user time to settle in)
     this.showTimeout = setTimeout(
       () => {
-        this.isVisible.set(true);
+        // Double-check subscription status before showing
+        if (!this.pushService.isSubscribed()) {
+          this.isVisible.set(true);
+        }
       },
       isPWA ? 1500 : 5000
     ); // Show faster if PWA, slower if in browser
@@ -75,6 +90,8 @@ export class PushPromptComponent implements OnInit, OnDestroy {
       const success = await this.pushService.subscribe();
 
       if (success) {
+        // Mark as dismissed so it doesn't show again
+        localStorage.setItem(this.DISMISSED_KEY, 'true');
         this.dismiss();
       }
     } catch (error) {
