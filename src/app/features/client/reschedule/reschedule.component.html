@@ -1,0 +1,172 @@
+<div class="reschedule-page">
+  <!-- Header -->
+  <header class="page-header">
+    <button class="back-btn" (click)="goBack()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 12H5M12 19l-7-7 7-7"/>
+      </svg>
+    </button>
+    <h1>Reschedule Appointment</h1>
+    <div class="header-spacer"></div>
+  </header>
+
+  <!-- Progress Bar -->
+  <div class="progress-bar">
+    <div class="progress-bar__fill" [style.width.%]="(step() / 3) * 100"></div>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-state">
+      <div class="loader"></div>
+    </div>
+  } @else if (error()) {
+    <div class="error-state">
+      <div class="error-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 8v4M12 16h.01"/>
+        </svg>
+      </div>
+      <h3>{{ error() }}</h3>
+      <button class="btn-primary" (click)="cancel()">Back to Dashboard</button>
+    </div>
+  } @else if (appointment(); as apt) {
+    <!-- Current Appointment Info -->
+    <div class="current-appointment">
+      <div class="current-appointment__label">Current Booking</div>
+      <div class="current-appointment__details">
+        <span class="service-name">{{ apt.service.name }}</span>
+        <span class="datetime">{{ formatOriginalDate(apt.start_time) }} at {{ formatOriginalTime(apt.start_time) }}</span>
+      </div>
+    </div>
+
+    <!-- Step 1: Select Date -->
+    @if (step() === 1) {
+      <div class="step">
+        <div class="step__header">
+          <span class="step__number">1</span>
+          <h2>Choose a New Date</h2>
+          <p>Select when you'd like to reschedule</p>
+        </div>
+
+        <div class="calendar">
+          <div class="calendar__header">
+            <button class="calendar__nav" (click)="previousMonth()">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M15 18l-6-6 6-6"/>
+              </svg>
+            </button>
+            <span class="calendar__month">{{ formatMonthYear(currentMonth()) }}</span>
+            <button class="calendar__nav" (click)="nextMonth()">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18l6-6-6-6"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="calendar__weekdays">
+            <span>S</span>
+            <span>M</span>
+            <span>T</span>
+            <span>W</span>
+            <span>T</span>
+            <span>F</span>
+            <span>S</span>
+          </div>
+
+          <div class="calendar__days">
+            @for (day of calendarDays(); track day.date.toISOString()) {
+              <button
+                class="calendar__day"
+                [class.today]="day.today"
+                [class.selected]="isSelectedDate(day.date)"
+                [class.disabled]="day.disabled"
+                [disabled]="day.disabled"
+                (click)="selectDate(day.date)">
+                {{ day.date.getDate() }}
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Step 2: Select Time -->
+    @if (step() === 2) {
+      <div class="step">
+        <div class="step__header">
+          <span class="step__number">2</span>
+          <h2>Choose a Time</h2>
+          <p>{{ formatDate(selectedDate()!) }}</p>
+        </div>
+
+        <div class="time-slots">
+          @if (availableSlots().length === 0) {
+            <div class="no-slots">No available times for this date</div>
+          } @else {
+            <div class="time-slots__grid">
+              @for (slot of availableSlots(); track slot.time.toISOString()) {
+                <button
+                  class="time-slot"
+                  [class.unavailable]="!slot.available"
+                  [disabled]="!slot.available"
+                  (click)="selectTime(slot.time)">
+                  {{ formatTime(slot.time) }}
+                </button>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Step 3: Confirm -->
+    @if (step() === 3) {
+      <div class="step">
+        <div class="step__header">
+          <span class="step__number">3</span>
+          <h2>Confirm Changes</h2>
+          <p>Review your new appointment time</p>
+        </div>
+
+        <div class="confirmation-card">
+          <div class="confirmation-card__row">
+            <span class="label">Service</span>
+            <span class="value">{{ apt.service.name }}</span>
+          </div>
+          <div class="confirmation-card__row">
+            <span class="label">Duration</span>
+            <span class="value">{{ apt.service.duration_minutes }} minutes</span>
+          </div>
+          <div class="confirmation-card__row">
+            <span class="label">Barber</span>
+            <span class="value">{{ apt.staff.first_name }} {{ apt.staff.last_name }}</span>
+          </div>
+          <div class="confirmation-card__divider"></div>
+          <div class="confirmation-card__row">
+            <span class="label">Original Time</span>
+            <span class="value old-time">{{ formatOriginalDate(apt.start_time) }} at {{ formatOriginalTime(apt.start_time) }}</span>
+          </div>
+          <div class="confirmation-card__row">
+            <span class="label">New Time</span>
+            <span class="value new-time">{{ formatDate(selectedTime()!) }} at {{ formatTime(selectedTime()!) }}</span>
+          </div>
+          <div class="confirmation-card__divider"></div>
+          <div class="confirmation-card__row confirmation-card__row--total">
+            <span class="label">Total</span>
+            <span class="value">{{ formatPrice(apt.service.price) }}</span>
+          </div>
+        </div>
+
+        <button
+          class="confirm-btn"
+          [disabled]="saving()"
+          (click)="confirmReschedule()">
+          {{ saving() ? 'Rescheduling...' : 'Confirm Reschedule' }}
+        </button>
+
+        <p class="confirm-note">Your barber will be notified of the change</p>
+      </div>
+    }
+  }
+</div>

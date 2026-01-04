@@ -1,0 +1,235 @@
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: var(--color-neutral-50);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: white;
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  border: 1px solid var(--color-neutral-200);
+}
+
+.auth-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--space-6);
+
+  .logo-mark {
+    width: 48px;
+    height: 48px;
+    background: var(--color-neutral-900);
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+
+    svg {
+      width: 24px;
+      height: 24px;
+    }
+  }
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: var(--space-6);
+
+  h1 {
+    font-size: var(--text-xl);
+    font-weight: 600;
+    color: var(--color-neutral-900);
+    margin: 0 0 var(--space-1) 0;
+  }
+
+  p {
+    color: var(--color-neutral-500);
+    font-size: var(--text-sm);
+    margin: 0;
+  }
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-neutral-700);
+}
+
+.input {
+  height: 40px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--color-neutral-900);
+  background: white;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &::placeholder {
+    color: var(--color-neutral-400);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-neutral-900);
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
+  }
+}
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+
+  svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  &--error {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+  }
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: 40px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+
+  &--primary {
+    background: var(--color-neutral-900);
+    color: white;
+
+    &:hover:not(:disabled) {
+      background: var(--color-neutral-800);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  &--full {
+    width: 100%;
+  }
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.auth-footer {
+  text-align: center;
+  margin-top: var(--space-6);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--color-neutral-200);
+  font-size: var(--text-sm);
+  color: var(--color-neutral-500);
+
+  .link {
+    color: var(--color-neutral-900);
+    text-decoration: none;
+    font-weight: 500;
+    margin-left: var(--space-1);
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+// Success state styling
+.success-state {
+  text-align: center;
+  padding: var(--space-4) 0;
+
+  .success-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto var(--space-4);
+    background: #dcfce7;
+    color: #16a34a;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+    font-weight: 600;
+    color: var(--color-neutral-900);
+    margin: 0 0 var(--space-2) 0;
+  }
+
+  p {
+    color: var(--color-neutral-500);
+    font-size: var(--text-sm);
+    margin: 0 0 var(--space-1) 0;
+  }
+
+  .email-highlight {
+    color: var(--color-neutral-900);
+    font-weight: 500;
+  }
+
+  .hint {
+    margin-top: var(--space-4);
+    margin-bottom: var(--space-6);
+  }
+}

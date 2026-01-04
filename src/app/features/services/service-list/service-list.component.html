@@ -1,0 +1,76 @@
+<div class="services-page">
+  <div class="page-header">
+    <div>
+      <h1>Services</h1>
+      <p>Manage the services your barbershop offers</p>
+    </div>
+    <a routerLink="new" class="btn btn-primary">
+      Add Service
+    </a>
+  </div>
+
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+    </div>
+  } @else if (services().length === 0) {
+    <div class="empty-state">
+      <div class="empty-icon">✂️</div>
+      <h3>No services yet</h3>
+      <p>Add your first service to start accepting bookings</p>
+      <a routerLink="new" class="btn btn-primary mt-2">
+        Add Your First Service
+      </a>
+    </div>
+  } @else {
+    <div class="services-list">
+      @for (service of services(); track service.id) {
+        <div class="service-card" [class.inactive]="!service.is_active">
+          <div class="service-header">
+            <h3 class="service-name">{{ service.name }}</h3>
+            <span
+              class="status-badge"
+              [class.status-available]="service.is_active"
+              [class.status-unavailable]="!service.is_active"
+            >
+              {{ service.is_active ? 'Active' : 'Inactive' }}
+            </span>
+          </div>
+
+          @if (service.description) {
+            <p class="service-description">{{ service.description }}</p>
+          }
+
+          <div class="service-details">
+            <div class="detail">
+              <span class="detail-label">Duration</span>
+              <span class="detail-value">{{ formatDuration(service.duration_minutes) }}</span>
+            </div>
+            <div class="detail">
+              <span class="detail-label">Price</span>
+              <span class="detail-value price">{{ formatPrice(service.price) }}</span>
+            </div>
+          </div>
+
+          <div class="service-actions">
+            <a [routerLink]="[service.id, 'edit']" class="btn btn-outline btn-sm">
+              Edit
+            </a>
+            <button
+              class="btn btn-ghost btn-sm"
+              (click)="toggleActive(service)"
+            >
+              {{ service.is_active ? 'Deactivate' : 'Activate' }}
+            </button>
+            <button
+              class="btn btn-ghost btn-sm text-error"
+              (click)="deleteService(service)"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>

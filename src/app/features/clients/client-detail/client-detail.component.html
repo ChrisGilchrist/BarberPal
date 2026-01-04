@@ -1,0 +1,78 @@
+<div class="client-detail">
+  <a routerLink="/clients" class="back-link">← Back to Clients</a>
+
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+    </div>
+  } @else if (client()) {
+    <div class="client-header card card-static">
+      <div class="client-avatar">
+        @if (client()!.avatar_url) {
+          <img [src]="client()!.avatar_url" [alt]="client()!.first_name" />
+        } @else {
+          <span class="avatar-initials">
+            {{ client()!.first_name[0] }}{{ client()!.last_name[0] }}
+          </span>
+        }
+      </div>
+      <div class="client-info">
+        <h1>{{ client()!.first_name }} {{ client()!.last_name }}</h1>
+        @if (client()!.phone) {
+          <p class="phone">{{ client()!.phone }}</p>
+        }
+        @if (client()!.notes) {
+          <p class="notes">{{ client()!.notes }}</p>
+        }
+      </div>
+    </div>
+
+    @if (stats()) {
+      <div class="stats-grid">
+        <div class="stat-card card card-static">
+          <div class="stat-value">{{ stats().totalAppointments }}</div>
+          <div class="stat-label">Total Visits</div>
+        </div>
+        <div class="stat-card card card-static">
+          <div class="stat-value">{{ stats().completedAppointments }}</div>
+          <div class="stat-label">Completed</div>
+        </div>
+        <div class="stat-card card card-static">
+          <div class="stat-value">{{ formatPrice(stats().totalSpent) }}</div>
+          <div class="stat-label">Total Spent</div>
+        </div>
+      </div>
+    }
+
+    <section class="history-section">
+      <h2>Appointment History</h2>
+
+      @if (appointments().length === 0) {
+        <p class="no-history">No appointment history</p>
+      } @else {
+        <div class="history-list">
+          @for (apt of appointments(); track apt.id) {
+            <div class="history-item card card-static">
+              <div class="history-date">
+                <span class="date">{{ formatDate(apt.start_time) }}</span>
+                <span class="time">{{ formatTime(apt.start_time) }}</span>
+              </div>
+              <div class="history-info">
+                <span class="service">{{ apt.service?.name }}</span>
+                <span class="staff">with {{ apt.staff?.first_name }}</span>
+              </div>
+              <div class="history-status">
+                <span class="status-badge" [ngClass]="getStatusClass(apt.status)">
+                  {{ apt.status | titlecase }}
+                </span>
+                @if (apt.service?.price) {
+                  <span class="price">{{ formatPrice(apt.service!.price) }}</span>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </section>
+  }
+</div>

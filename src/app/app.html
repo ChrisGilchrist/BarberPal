@@ -1,0 +1,15 @@
+<div class="app-container">
+  @if (authService.isAuthenticated()) {
+    <app-navbar />
+  }
+
+  @if (authService.isLoading()) {
+    <div class="loading-overlay">
+      <div class="spinner"></div>
+    </div>
+  } @else {
+    <main class="main-content" [class.auth-page]="!authService.isAuthenticated()">
+      <router-outlet />
+    </main>
+  }
+</div>

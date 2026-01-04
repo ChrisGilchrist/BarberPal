@@ -1,0 +1,130 @@
+<div class="dashboard">
+  <div class="page-header">
+    <h1>Welcome, {{ authService.user()?.first_name }}</h1>
+    <p>
+      @if (authService.isClient()) {
+        Manage your appointments and book new services
+      } @else if (authService.isStaff()) {
+        View your schedule and manage clients
+      } @else if (authService.isOwner()) {
+        Overview of your barbershop
+      }
+    </p>
+  </div>
+
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading your dashboard...</p>
+    </div>
+  } @else {
+    <!-- Client Dashboard -->
+    @if (authService.isClient()) {
+      <div class="dashboard-actions">
+        <a routerLink="/booking" class="btn btn-primary btn-lg">
+          Book Appointment
+        </a>
+      </div>
+
+      <section class="dashboard-section">
+        <h2>Upcoming Appointments</h2>
+
+        @if (upcomingAppointments().length === 0) {
+          <div class="empty-state card card-static">
+            <div class="empty-icon">📅</div>
+            <h3>No upcoming appointments</h3>
+            <p>Book your next haircut today!</p>
+            <a routerLink="/booking" class="btn btn-primary mt-2">
+              Book Now
+            </a>
+          </div>
+        } @else {
+          <div class="appointments-list">
+            @for (apt of upcomingAppointments(); track apt.id) {
+              <div class="appointment-card card">
+                <div class="appointment-header">
+                  <span class="appointment-date">{{ formatDate(apt.start_time) }}</span>
+                  <span class="status-badge" [ngClass]="getStatusClass(apt.status)">
+                    {{ apt.status }}
+                  </span>
+                </div>
+                <div class="appointment-details">
+                  <div class="appointment-time">{{ formatTime(apt.start_time) }}</div>
+                  <div class="appointment-service">{{ apt.service?.name }}</div>
+                  <div class="appointment-staff">with {{ apt.staff?.first_name }} {{ apt.staff?.last_name }}</div>
+                </div>
+                <div class="appointment-actions">
+                  <button class="btn btn-ghost btn-sm">Reschedule</button>
+                  <button class="btn btn-accent btn-sm">Cancel</button>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </section>
+    }
+
+    <!-- Staff/Owner Dashboard -->
+    @if (authService.isStaffOrOwner()) {
+      <div class="dashboard-stats">
+        <div class="stat-card card card-static">
+          <div class="stat-value">{{ todaysAppointments().length }}</div>
+          <div class="stat-label">Today's Appointments</div>
+        </div>
+        @if (authService.isOwner()) {
+          <a routerLink="/calendar" class="stat-card card">
+            <div class="stat-icon">📅</div>
+            <div class="stat-label">View Calendar</div>
+          </a>
+          <a routerLink="/clients" class="stat-card card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-label">Manage Clients</div>
+          </a>
+          <a routerLink="/services" class="stat-card card">
+            <div class="stat-icon">✂️</div>
+            <div class="stat-label">Services</div>
+          </a>
+        }
+      </div>
+
+      <section class="dashboard-section">
+        <div class="section-header">
+          <h2>Today's Schedule</h2>
+          <a routerLink="/calendar" class="btn btn-outline btn-sm">View Full Calendar</a>
+        </div>
+
+        @if (todaysAppointments().length === 0) {
+          <div class="empty-state card card-static">
+            <div class="empty-icon">🎉</div>
+            <h3>No appointments today</h3>
+            <p>Enjoy your free time or prepare for tomorrow!</p>
+          </div>
+        } @else {
+          <div class="schedule-list">
+            @for (apt of todaysAppointments(); track apt.id) {
+              <div class="schedule-item card">
+                <div class="schedule-time">
+                  {{ formatTime(apt.start_time) }}
+                </div>
+                <div class="schedule-details">
+                  <div class="client-name">
+                    {{ apt.client?.first_name }} {{ apt.client?.last_name }}
+                  </div>
+                  <div class="service-name">{{ apt.service?.name }}</div>
+                </div>
+                <div class="schedule-status">
+                  <span class="status-badge" [ngClass]="getStatusClass(apt.status)">
+                    {{ apt.status }}
+                  </span>
+                </div>
+                <div class="schedule-actions">
+                  <button class="btn btn-primary btn-sm">Check In</button>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </section>
+    }
+  }
+</div>

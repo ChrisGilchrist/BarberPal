@@ -1,0 +1,173 @@
+<div class="profile-page">
+  <div class="page-header">
+    <h1>My Profile</h1>
+    <span class="role-badge">{{ getRoleLabel() }}</span>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading profile...</p>
+    </div>
+  } @else {
+    <div class="tabs">
+      <button
+        class="tab"
+        [class.active]="activeTab() === 'profile'"
+        (click)="setTab('profile')">
+        Profile Info
+      </button>
+      @if (canChangePassword) {
+        <button
+          class="tab"
+          [class.active]="activeTab() === 'password'"
+          (click)="setTab('password')">
+          Change Password
+        </button>
+      }
+    </div>
+
+    <div class="tab-content">
+      @if (activeTab() === 'profile') {
+        <div class="profile-section card">
+          @if (error()) {
+            <div class="alert alert-error">{{ error() }}</div>
+          }
+          @if (success()) {
+            <div class="alert alert-success">{{ success() }}</div>
+          }
+
+          <form [formGroup]="profileForm" (ngSubmit)="saveProfile()">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="first_name">First Name</label>
+                <input
+                  type="text"
+                  id="first_name"
+                  formControlName="first_name"
+                  class="form-control"
+                  placeholder="Enter first name">
+                @if (profileForm.get('first_name')?.touched && profileForm.get('first_name')?.errors?.['required']) {
+                  <span class="error-text">First name is required</span>
+                }
+              </div>
+
+              <div class="form-group">
+                <label for="last_name">Last Name</label>
+                <input
+                  type="text"
+                  id="last_name"
+                  formControlName="last_name"
+                  class="form-control"
+                  placeholder="Enter last name">
+                @if (profileForm.get('last_name')?.touched && profileForm.get('last_name')?.errors?.['required']) {
+                  <span class="error-text">Last name is required</span>
+                }
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="email">Email</label>
+              <input
+                type="email"
+                id="email"
+                formControlName="email"
+                class="form-control"
+                placeholder="Email address">
+              <span class="help-text">Email cannot be changed</span>
+            </div>
+
+            <div class="form-group">
+              <label for="phone">Phone Number</label>
+              <input
+                type="tel"
+                id="phone"
+                formControlName="phone"
+                class="form-control"
+                placeholder="Enter phone number">
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" [disabled]="saving() || profileForm.invalid">
+                {{ saving() ? 'Saving...' : 'Save Changes' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      }
+
+      @if (activeTab() === 'password' && canChangePassword) {
+        <div class="password-section card">
+          @if (passwordError()) {
+            <div class="alert alert-error">{{ passwordError() }}</div>
+          }
+          @if (passwordSuccess()) {
+            <div class="alert alert-success">{{ passwordSuccess() }}</div>
+          }
+
+          <form [formGroup]="passwordForm" (ngSubmit)="changePassword()">
+            <div class="form-group">
+              <label for="current_password">Current Password</label>
+              <input
+                type="password"
+                id="current_password"
+                formControlName="current_password"
+                class="form-control"
+                placeholder="Enter current password">
+              @if (passwordForm.get('current_password')?.touched && passwordForm.get('current_password')?.errors?.['required']) {
+                <span class="error-text">Current password is required</span>
+              }
+            </div>
+
+            <div class="form-group">
+              <label for="new_password">New Password</label>
+              <input
+                type="password"
+                id="new_password"
+                formControlName="new_password"
+                class="form-control"
+                placeholder="Enter new password">
+              @if (passwordForm.get('new_password')?.touched) {
+                @if (passwordForm.get('new_password')?.errors?.['required']) {
+                  <span class="error-text">New password is required</span>
+                } @else if (passwordForm.get('new_password')?.errors?.['minlength']) {
+                  <span class="error-text">Password must be at least 8 characters</span>
+                }
+              }
+            </div>
+
+            <div class="form-group">
+              <label for="confirm_password">Confirm New Password</label>
+              <input
+                type="password"
+                id="confirm_password"
+                formControlName="confirm_password"
+                class="form-control"
+                placeholder="Confirm new password">
+              @if (passwordForm.get('confirm_password')?.touched && passwordForm.get('confirm_password')?.errors?.['required']) {
+                <span class="error-text">Please confirm your password</span>
+              }
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" [disabled]="savingPassword() || passwordForm.invalid">
+                {{ savingPassword() ? 'Updating...' : 'Update Password' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      }
+    </div>
+
+    <div class="danger-zone card">
+      <h3>Account Actions</h3>
+      <div class="action-row">
+        <div class="action-info">
+          <strong>Sign Out</strong>
+          <p>Sign out of your account on this device.</p>
+        </div>
+        <button class="btn btn-secondary" (click)="logout()">Sign Out</button>
+      </div>
+    </div>
+  }
+</div>

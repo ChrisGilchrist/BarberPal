@@ -1,0 +1,138 @@
+<div class="staff-page">
+  <div class="page-header">
+    <div>
+      <h1>Staff</h1>
+      <p>Manage your barbershop team</p>
+    </div>
+    <button class="btn btn-primary" (click)="openAddModal()">
+      Add Staff Member
+    </button>
+  </div>
+
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+    </div>
+  } @else if (staff().length === 0) {
+    <div class="empty-state card card-static">
+      <div class="empty-icon">👥</div>
+      <h3>No staff members yet</h3>
+      <p>Add your first team member to get started</p>
+      <button class="btn btn-primary mt-2" (click)="openAddModal()">
+        Add Staff Member
+      </button>
+    </div>
+  } @else {
+    <div class="staff-list">
+      @for (member of staff(); track member.id) {
+        <div class="staff-card card">
+          <div class="staff-avatar">
+            @if (member.avatar_url) {
+              <img [src]="member.avatar_url" [alt]="member.first_name" />
+            } @else {
+              <span class="avatar-initials">
+                {{ member.first_name[0] }}{{ member.last_name[0] }}
+              </span>
+            }
+          </div>
+
+          <div class="staff-info">
+            <h3 class="staff-name">{{ member.first_name }} {{ member.last_name }}</h3>
+            <span class="status-badge" [ngClass]="getRoleBadgeClass(member.role)">
+              {{ member.role | titlecase }}
+            </span>
+            @if (member.phone) {
+              <p class="staff-phone">{{ member.phone }}</p>
+            }
+          </div>
+
+          <div class="staff-actions">
+            <a [routerLink]="['/staff', member.id]" class="btn btn-outline btn-sm">
+              View Details
+            </a>
+            @if (member.role !== 'owner') {
+              <button
+                class="btn btn-ghost btn-sm text-error"
+                (click)="removeStaff(member)"
+              >
+                Remove
+              </button>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<!-- Add Staff Modal -->
+@if (showAddModal()) {
+  <div class="modal-overlay" (click)="closeAddModal()">
+    <div class="modal-content card card-static" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Add Staff Member</h2>
+        <button class="modal-close" (click)="closeAddModal()">&times;</button>
+      </div>
+
+      @if (addError()) {
+        <div class="alert alert-error">
+          {{ addError() }}
+        </div>
+      }
+
+      <form (ngSubmit)="addStaff()">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="firstName">First Name *</label>
+            <input
+              type="text"
+              id="firstName"
+              [(ngModel)]="newFirstName"
+              name="firstName"
+              class="form-control"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="lastName">Last Name *</label>
+            <input
+              type="text"
+              id="lastName"
+              [(ngModel)]="newLastName"
+              name="lastName"
+              class="form-control"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input
+            type="email"
+            id="email"
+            [(ngModel)]="newEmail"
+            name="email"
+            class="form-control"
+            placeholder="For sending invitation"
+          />
+          <p class="form-hint">An invitation will be sent to this email</p>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" (click)="closeAddModal()">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="isAdding()">
+            @if (isAdding()) {
+              <span class="spinner spinner-small"></span> Adding...
+            } @else {
+              Add Staff
+            }
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

@@ -1,0 +1,212 @@
+<div class="book-page">
+  <!-- Header -->
+  <header class="book-header">
+    @if (step() > 1) {
+      <button class="back-btn" (click)="goBack()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+      </button>
+    } @else {
+      <a routerLink="/client/dashboard" class="back-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+      </a>
+    }
+    <h1>Book Appointment</h1>
+    <div class="header-spacer"></div>
+  </header>
+
+  <!-- Progress -->
+  <div class="progress-bar">
+    <div class="progress-bar__fill" [style.width.%]="(step() / 4) * 100"></div>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-state">
+      <div class="spinner spinner--lg"></div>
+    </div>
+  } @else if (error()) {
+    <div class="error-state">
+      <div class="error-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 8v4M12 16h.01"/>
+        </svg>
+      </div>
+      <h3>{{ error() }}</h3>
+      <a routerLink="/client/dashboard" class="btn btn--primary">Go Back</a>
+    </div>
+  } @else {
+    <!-- Step 1: Select Service -->
+    @if (step() === 1) {
+      <div class="step step--services">
+        <div class="step__header">
+          <span class="step__number">1</span>
+          <h2>Choose a Service</h2>
+          <p>with {{ barberName() }}</p>
+        </div>
+
+        <div class="service-list">
+          @for (service of services(); track service.id) {
+            <button class="service-card" (click)="selectService(service)">
+              <div class="service-card__main">
+                <h3>{{ service.name }}</h3>
+                @if (service.description) {
+                  <p>{{ service.description }}</p>
+                }
+              </div>
+              <div class="service-card__meta">
+                <span class="price">{{ formatPrice(service.price) }}</span>
+                <span class="duration">{{ service.duration_minutes }} min</span>
+              </div>
+              <svg class="service-card__arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18l6-6-6-6"/>
+              </svg>
+            </button>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Step 2: Select Date -->
+    @if (step() === 2) {
+      <div class="step step--date">
+        <div class="step__header">
+          <span class="step__number">2</span>
+          <h2>Pick a Date</h2>
+          <p>{{ selectedService()?.name }} · {{ selectedService()?.duration_minutes }} min</p>
+        </div>
+
+        <!-- Calendar -->
+        <div class="calendar">
+          <div class="calendar__header">
+            <button class="calendar__nav" (click)="previousMonth()">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M15 18l-6-6 6-6"/>
+              </svg>
+            </button>
+            <span class="calendar__month">{{ formatMonthYear(currentMonth()) }}</span>
+            <button class="calendar__nav" (click)="nextMonth()">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18l6-6-6-6"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="calendar__weekdays">
+            <span>Su</span>
+            <span>Mo</span>
+            <span>Tu</span>
+            <span>We</span>
+            <span>Th</span>
+            <span>Fr</span>
+            <span>Sa</span>
+          </div>
+
+          <div class="calendar__days">
+            @for (day of calendarDays(); track day.date.toISOString()) {
+              <button
+                class="calendar__day"
+                [class.disabled]="day.disabled"
+                [class.today]="day.today"
+                [class.selected]="isSelectedDate(day.date)"
+                [disabled]="day.disabled"
+                (click)="selectDate(day.date)"
+              >
+                {{ day.date.getDate() }}
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Step 3: Select Time -->
+    @if (step() === 3) {
+      <div class="step step--time">
+        <div class="step__header">
+          <span class="step__number">3</span>
+          <h2>Pick a Time</h2>
+          <p>{{ formatDate(selectedDate()!) }}</p>
+        </div>
+
+        <div class="time-slots">
+          @if (availableSlots().length === 0) {
+            <p class="no-slots">No available times for this date</p>
+          } @else {
+            <div class="time-slots__grid">
+              @for (slot of availableSlots(); track slot.time.toISOString()) {
+                <button
+                  class="time-slot"
+                  [class.unavailable]="!slot.available"
+                  [disabled]="!slot.available"
+                  (click)="selectTime(slot.time)"
+                >
+                  {{ formatTime(slot.time) }}
+                </button>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Step 4: Confirm -->
+    @if (step() === 4) {
+      <div class="step step--confirm">
+        <div class="step__header">
+          <span class="step__number">4</span>
+          <h2>Confirm Booking</h2>
+          <p>Review your appointment details</p>
+        </div>
+
+        <div class="confirmation-card">
+          <div class="confirmation-card__row">
+            <span class="label">Service</span>
+            <span class="value">{{ selectedService()?.name }}</span>
+          </div>
+          <div class="confirmation-card__row">
+            <span class="label">Date</span>
+            <span class="value">{{ formatDate(selectedTime()!) }}</span>
+          </div>
+          <div class="confirmation-card__row">
+            <span class="label">Time</span>
+            <span class="value">{{ formatTime(selectedTime()!) }}</span>
+          </div>
+          <div class="confirmation-card__row">
+            <span class="label">Duration</span>
+            <span class="value">{{ selectedService()?.duration_minutes }} minutes</span>
+          </div>
+          <div class="confirmation-card__row">
+            <span class="label">Barber</span>
+            <span class="value">{{ barberName() }}</span>
+          </div>
+          <div class="confirmation-card__divider"></div>
+          <div class="confirmation-card__row confirmation-card__row--total">
+            <span class="label">Total</span>
+            <span class="value">{{ formatPrice(selectedService()?.price || 0) }}</span>
+          </div>
+        </div>
+
+        <button
+          class="confirm-btn"
+          [disabled]="booking()"
+          (click)="confirmBooking()"
+        >
+          @if (booking()) {
+            <div class="spinner"></div>
+            Booking...
+          } @else {
+            Confirm Booking
+          }
+        </button>
+
+        <p class="confirm-note">
+          You'll receive a confirmation once your barber approves the appointment.
+        </p>
+      </div>
+    }
+  }
+</div>

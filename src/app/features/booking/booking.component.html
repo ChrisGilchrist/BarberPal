@@ -1,0 +1,211 @@
+<div class="booking">
+  <div class="page-header">
+    <h1>Book Appointment</h1>
+    <p>Select a service, staff member, and time</p>
+  </div>
+
+  <!-- Progress Steps -->
+  <div class="booking-progress">
+    <div class="progress-step" [class.active]="currentStep() === 'service'" [class.completed]="selectedService()">
+      <span class="step-number">1</span>
+      <span class="step-label">Service</span>
+    </div>
+    <div class="progress-line" [class.completed]="selectedService()"></div>
+    <div class="progress-step" [class.active]="currentStep() === 'staff'" [class.completed]="selectedStaff()">
+      <span class="step-number">2</span>
+      <span class="step-label">Staff</span>
+    </div>
+    <div class="progress-line" [class.completed]="selectedStaff()"></div>
+    <div class="progress-step" [class.active]="currentStep() === 'datetime'" [class.completed]="selectedTime()">
+      <span class="step-number">3</span>
+      <span class="step-label">Date & Time</span>
+    </div>
+    <div class="progress-line" [class.completed]="selectedTime()"></div>
+    <div class="progress-step" [class.active]="currentStep() === 'confirm'">
+      <span class="step-number">4</span>
+      <span class="step-label">Confirm</span>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading available options...</p>
+    </div>
+  } @else {
+    <div class="booking-content">
+      <!-- Step 1: Select Service -->
+      @if (currentStep() === 'service') {
+        <h2>Select a Service</h2>
+        <div class="options-grid">
+          @for (service of services(); track service.id) {
+            <div
+              class="option-card card"
+              [class.selected]="selectedService()?.id === service.id"
+              (click)="selectService(service)"
+            >
+              <div class="option-header">
+                <h3>{{ service.name }}</h3>
+                <span class="price">{{ formatPrice(service.price) }}</span>
+              </div>
+              @if (service.description) {
+                <p class="option-desc">{{ service.description }}</p>
+              }
+              <div class="option-meta">
+                <span class="duration">{{ formatDuration(service.duration_minutes) }}</span>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Step 2: Select Staff -->
+      @if (currentStep() === 'staff') {
+        <h2>Choose Your Barber</h2>
+        <div class="options-grid">
+          @for (member of staff(); track member.id) {
+            <div
+              class="option-card card"
+              [class.selected]="selectedStaff()?.id === member.id"
+              (click)="selectStaff(member)"
+            >
+              <div class="staff-option">
+                <div class="staff-avatar">
+                  @if (member.avatar_url) {
+                    <img [src]="member.avatar_url" [alt]="member.first_name" />
+                  } @else {
+                    <span class="avatar-initials">
+                      {{ member.first_name[0] }}{{ member.last_name[0] }}
+                    </span>
+                  }
+                </div>
+                <div class="staff-info">
+                  <h3>{{ member.first_name }} {{ member.last_name }}</h3>
+                  <span class="role">{{ member.role | titlecase }}</span>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Step 3: Select Date & Time -->
+      @if (currentStep() === 'datetime') {
+        <h2>Pick a Date & Time</h2>
+
+        <div class="date-picker">
+          <div class="dates-scroll">
+            @for (date of availableDates(); track date.toISOString()) {
+              <button
+                class="date-option"
+                [class.selected]="selectedDate()?.toDateString() === date.toDateString()"
+                [class.today]="isToday(date)"
+                (click)="selectDate(date)"
+              >
+                <span class="date-day">{{ formatDayName(date) }}</span>
+                <span class="date-num">{{ formatDateShort(date) }}</span>
+              </button>
+            }
+          </div>
+        </div>
+
+        @if (selectedDate()) {
+          <div class="time-picker">
+            <h3>Available Times for {{ formatDate(selectedDate()!) }}</h3>
+
+            @if (isLoadingSlots()) {
+              <div class="loading-state">
+                <div class="spinner spinner-small"></div>
+              </div>
+            } @else if (availableSlots().length === 0) {
+              <p class="no-slots">No available times for this date. Please select another day.</p>
+            } @else {
+              <div class="time-grid">
+                @for (slot of availableSlots(); track slot.time) {
+                  @if (slot.available) {
+                    <button
+                      class="time-option"
+                      [class.selected]="selectedTime() === slot.time"
+                      (click)="selectTime(slot.time)"
+                    >
+                      {{ slot.time }}
+                    </button>
+                  }
+                }
+              </div>
+            }
+          </div>
+        }
+      }
+
+      <!-- Step 4: Confirm -->
+      @if (currentStep() === 'confirm') {
+        <h2>Confirm Your Booking</h2>
+
+        @if (error()) {
+          <div class="alert alert-error">
+            {{ error() }}
+          </div>
+        }
+
+        <div class="booking-summary card card-static">
+          <div class="summary-item">
+            <span class="summary-label">Service</span>
+            <span class="summary-value">{{ selectedService()?.name }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Barber</span>
+            <span class="summary-value">{{ selectedStaff()?.first_name }} {{ selectedStaff()?.last_name }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Date</span>
+            <span class="summary-value">{{ formatDate(selectedDate()!) }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Time</span>
+            <span class="summary-value">{{ selectedTime() }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Duration</span>
+            <span class="summary-value">{{ formatDuration(selectedService()!.duration_minutes) }}</span>
+          </div>
+          <div class="summary-item total">
+            <span class="summary-label">Total</span>
+            <span class="summary-value">{{ formatPrice(selectedService()!.price) }}</span>
+          </div>
+        </div>
+      }
+
+      <!-- Navigation -->
+      <div class="booking-nav">
+        @if (currentStep() !== 'service') {
+          <button class="btn btn-secondary" (click)="prevStep()">
+            Back
+          </button>
+        }
+
+        @if (currentStep() === 'confirm') {
+          <button
+            class="btn btn-primary"
+            (click)="confirmBooking()"
+            [disabled]="isBooking()"
+          >
+            @if (isBooking()) {
+              <span class="spinner spinner-small"></span> Booking...
+            } @else {
+              Confirm Booking
+            }
+          </button>
+        } @else {
+          <button
+            class="btn btn-primary"
+            (click)="nextStep()"
+            [disabled]="!canProceed()"
+          >
+            Continue
+          </button>
+        }
+      </div>
+    </div>
+  }
+</div>

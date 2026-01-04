@@ -1,0 +1,73 @@
+<div class="clients-page">
+  <div class="page-header">
+    <h1>Clients</h1>
+    <p>Manage your client list and view appointment history</p>
+  </div>
+
+  <div class="search-bar">
+    <input
+      type="text"
+      [(ngModel)]="searchTerm"
+      (input)="onSearch()"
+      class="form-control"
+      placeholder="Search by name or phone..."
+    />
+    @if (searchTerm) {
+      <button class="clear-btn" (click)="clearSearch()">
+        &times;
+      </button>
+    }
+  </div>
+
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+    </div>
+  } @else if (filteredClients().length === 0) {
+    <div class="empty-state">
+      @if (searchTerm) {
+        <div class="empty-icon">🔍</div>
+        <h3>No clients found</h3>
+        <p>Try a different search term</p>
+        <button class="btn btn-outline mt-2" (click)="clearSearch()">
+          Clear Search
+        </button>
+      } @else {
+        <div class="empty-icon">👥</div>
+        <h3>No clients yet</h3>
+        <p>Clients will appear here once they book an appointment</p>
+      }
+    </div>
+  } @else {
+    <div class="clients-list">
+      @for (client of filteredClients(); track client.id) {
+        <a [routerLink]="[client.id]" class="client-card">
+          <div class="client-avatar">
+            @if (client.avatar_url) {
+              <img [src]="client.avatar_url" [alt]="client.first_name" />
+            } @else {
+              <span class="avatar-initials">
+                {{ client.first_name[0] }}{{ client.last_name[0] }}
+              </span>
+            }
+          </div>
+
+          <div class="client-info">
+            <h3>{{ client.first_name }} {{ client.last_name }}</h3>
+            @if (client.phone) {
+              <p class="client-phone">{{ client.phone }}</p>
+            }
+          </div>
+
+          <div class="client-arrow">
+            →
+          </div>
+        </a>
+      }
+    </div>
+
+    <p class="results-count">
+      Showing {{ filteredClients().length }} of {{ clients().length }} clients
+    </p>
+  }
+</div>

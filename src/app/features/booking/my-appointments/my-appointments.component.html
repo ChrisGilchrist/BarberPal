@@ -1,0 +1,109 @@
+<div class="my-appointments">
+  <div class="page-header">
+    <div>
+      <h1>My Appointments</h1>
+      <p>View and manage your bookings</p>
+    </div>
+    <a routerLink="/booking" class="btn btn-primary">
+      Book New
+    </a>
+  </div>
+
+  <div class="tabs">
+    <button
+      class="tab"
+      [class.active]="activeTab() === 'upcoming'"
+      (click)="setActiveTab('upcoming')"
+    >
+      Upcoming ({{ upcomingAppointments().length }})
+    </button>
+    <button
+      class="tab"
+      [class.active]="activeTab() === 'past'"
+      (click)="setActiveTab('past')"
+    >
+      Past
+    </button>
+  </div>
+
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+    </div>
+  } @else {
+    <!-- Upcoming -->
+    @if (activeTab() === 'upcoming') {
+      @if (upcomingAppointments().length === 0) {
+        <div class="empty-state card card-static">
+          <div class="empty-icon">📅</div>
+          <h3>No upcoming appointments</h3>
+          <p>Book your next haircut today!</p>
+          <a routerLink="/booking" class="btn btn-primary mt-2">
+            Book Now
+          </a>
+        </div>
+      } @else {
+        <div class="appointments-list">
+          @for (apt of upcomingAppointments(); track apt.id) {
+            <div class="appointment-card card">
+              <div class="appointment-date">
+                <span class="date-main">{{ formatDate(apt.start_time) }}</span>
+                <span class="date-time">{{ formatTime(apt.start_time) }}</span>
+              </div>
+
+              <div class="appointment-info">
+                <h3 class="service-name">{{ apt.service?.name }}</h3>
+                <p class="staff-name">with {{ apt.staff?.first_name }} {{ apt.staff?.last_name }}</p>
+                <span class="status-badge" [ngClass]="getStatusClass(apt.status)">
+                  {{ apt.status | titlecase }}
+                </span>
+              </div>
+
+              <div class="appointment-actions">
+                <button class="btn btn-accent btn-sm" (click)="cancelAppointment(apt)">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    }
+
+    <!-- Past -->
+    @if (activeTab() === 'past') {
+      @if (pastAppointments().length === 0) {
+        <div class="empty-state card card-static">
+          <div class="empty-icon">📜</div>
+          <h3>No past appointments</h3>
+          <p>Your appointment history will appear here</p>
+        </div>
+      } @else {
+        <div class="appointments-list">
+          @for (apt of pastAppointments(); track apt.id) {
+            <div class="appointment-card card past">
+              <div class="appointment-date">
+                <span class="date-main">{{ formatDate(apt.start_time) }}</span>
+                <span class="date-time">{{ formatTime(apt.start_time) }}</span>
+              </div>
+
+              <div class="appointment-info">
+                <h3 class="service-name">{{ apt.service?.name }}</h3>
+                <p class="staff-name">with {{ apt.staff?.first_name }} {{ apt.staff?.last_name }}</p>
+                <span class="status-badge" [ngClass]="getStatusClass(apt.status)">
+                  {{ apt.status | titlecase }}
+                </span>
+              </div>
+
+              <div class="appointment-actions">
+                <a routerLink="/booking" class="btn btn-outline btn-sm">
+                  Book Again
+                </a>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    }
+  }
+</div>

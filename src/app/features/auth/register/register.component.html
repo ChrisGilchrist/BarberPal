@@ -1,0 +1,143 @@
+<div class="auth-page">
+  <div class="auth-card">
+    <!-- Logo -->
+    <div class="auth-logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="6" cy="6" r="3"/>
+          <circle cx="6" cy="18" r="3"/>
+          <line x1="20" y1="4" x2="8.12" y2="15.88"/>
+          <line x1="14.47" y1="14.48" x2="20" y2="20"/>
+          <line x1="8.12" y1="8.12" x2="12" y2="12"/>
+        </svg>
+      </div>
+    </div>
+
+    @if (success()) {
+      <!-- Success State -->
+      <div class="success-state">
+        <div class="success-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        </div>
+        <h2>Check your email</h2>
+        <p>We've sent a confirmation link to</p>
+        <p class="email-highlight">{{ email }}</p>
+        <p class="hint">Click the link to verify your account</p>
+        <a routerLink="/auth/login" class="btn btn--primary btn--full">
+          Back to Sign in
+        </a>
+      </div>
+    } @else {
+      <!-- Header -->
+      <div class="auth-header">
+        <h1>Create account</h1>
+        <p>Sign up to get started with BarberPal</p>
+      </div>
+
+      <!-- Form -->
+      <form class="auth-form" (ngSubmit)="onSubmit()">
+        @if (error()) {
+          <div class="alert alert--error">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 8v4M12 16h.01"/>
+            </svg>
+            <span>{{ error() }}</span>
+          </div>
+        }
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="label" for="firstName">First name</label>
+            <input
+              type="text"
+              id="firstName"
+              name="firstName"
+              class="input"
+              placeholder="John"
+              [(ngModel)]="firstName"
+              required
+            >
+          </div>
+
+          <div class="form-group">
+            <label class="label" for="lastName">Last name</label>
+            <input
+              type="text"
+              id="lastName"
+              name="lastName"
+              class="input"
+              placeholder="Doe"
+              [(ngModel)]="lastName"
+              required
+            >
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="label" for="email">Email</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            class="input"
+            placeholder="you@example.com"
+            [(ngModel)]="email"
+            autocomplete="email"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label class="label" for="password">Password</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            class="input"
+            placeholder="At least 6 characters"
+            [(ngModel)]="password"
+            autocomplete="new-password"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label class="label" for="confirmPassword">Confirm password</label>
+          <input
+            type="password"
+            id="confirmPassword"
+            name="confirmPassword"
+            class="input"
+            placeholder="Confirm your password"
+            [(ngModel)]="confirmPassword"
+            autocomplete="new-password"
+            required
+          >
+        </div>
+
+        <button
+          type="submit"
+          class="btn btn--primary btn--full"
+          [disabled]="isLoading()"
+        >
+          @if (isLoading()) {
+            <span class="spinner"></span>
+            Creating account...
+          } @else {
+            Create account
+          }
+        </button>
+      </form>
+
+      <!-- Footer -->
+      <div class="auth-footer">
+        <span>Already have an account?</span>
+        <a routerLink="/auth/login" class="link">Sign in</a>
+      </div>
+    }
+  </div>
+</div>

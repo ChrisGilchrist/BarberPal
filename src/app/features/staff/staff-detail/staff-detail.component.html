@@ -1,0 +1,142 @@
+<div class="staff-detail-page">
+  <div class="page-header">
+    <a routerLink="/staff" class="btn btn-secondary">Back to Staff</a>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading staff details...</p>
+    </div>
+  } @else if (staff()) {
+    <div class="staff-profile card">
+      <div class="profile-header">
+        <div class="avatar-large">
+          @if (staff()?.avatar_url) {
+            <img [src]="staff()?.avatar_url" [alt]="staff()?.first_name">
+          } @else {
+            <span class="avatar-initials">
+              {{ staff()?.first_name?.charAt(0) }}{{ staff()?.last_name?.charAt(0) }}
+            </span>
+          }
+        </div>
+        <div class="profile-info">
+          <h1>{{ staff()?.first_name }} {{ staff()?.last_name }}</h1>
+          <p class="staff-role">{{ staff()?.role === 'owner' ? 'Owner' : 'Staff Member' }}</p>
+          @if (staff()?.email) {
+            <p class="staff-contact">{{ staff()?.email }}</p>
+          }
+          @if (staff()?.phone) {
+            <p class="staff-contact">{{ staff()?.phone }}</p>
+          }
+        </div>
+        <div class="profile-actions">
+          <button class="btn btn-danger" (click)="removeStaff()">Remove Staff</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button
+        class="tab"
+        [class.active]="activeTab() === 'schedule'"
+        (click)="setTab('schedule')">
+        Upcoming Schedule
+      </button>
+      <button
+        class="tab"
+        [class.active]="activeTab() === 'hours'"
+        (click)="setTab('hours')">
+        Working Hours
+      </button>
+      <button
+        class="tab"
+        [class.active]="activeTab() === 'services'"
+        (click)="setTab('services')">
+        Services
+      </button>
+    </div>
+
+    <div class="tab-content">
+      @if (activeTab() === 'schedule') {
+        <div class="schedule-section">
+          @if (upcomingAppointments().length === 0) {
+            <div class="empty-state card">
+              <p>No upcoming appointments scheduled.</p>
+            </div>
+          } @else {
+            <div class="appointments-list">
+              @for (apt of upcomingAppointments(); track apt.id) {
+                <div class="appointment-item card">
+                  <div class="appointment-datetime">
+                    <span class="appointment-date">{{ formatDate(apt.start_time) }}</span>
+                    <span class="appointment-time">{{ formatTime(apt.start_time) }}</span>
+                  </div>
+                  <div class="appointment-details">
+                    <p class="client-name">{{ apt.client?.first_name }} {{ apt.client?.last_name }}</p>
+                    <p class="service-name">{{ apt.service?.name }}</p>
+                  </div>
+                  <div class="appointment-status">
+                    <span class="status-badge" [class]="getStatusClass(apt.status)">
+                      {{ apt.status }}
+                    </span>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      @if (activeTab() === 'hours') {
+        <div class="hours-section card">
+          <h3>Set Working Hours</h3>
+          <form [formGroup]="hoursForm" (ngSubmit)="saveWorkingHours()">
+            <div class="hours-grid">
+              @for (day of daysOfWeek; track day; let i = $index) {
+                <div class="day-row">
+                  <label class="day-toggle">
+                    <input type="checkbox" [formControlName]="'day_' + i + '_active'">
+                    <span class="day-name">{{ day }}</span>
+                  </label>
+                  <div class="time-inputs" [class.disabled]="!hoursForm.get('day_' + i + '_active')?.value">
+                    <input
+                      type="time"
+                      [formControlName]="'day_' + i + '_start'"
+                      [disabled]="!hoursForm.get('day_' + i + '_active')?.value">
+                    <span class="time-separator">to</span>
+                    <input
+                      type="time"
+                      [formControlName]="'day_' + i + '_end'"
+                      [disabled]="!hoursForm.get('day_' + i + '_active')?.value">
+                  </div>
+                </div>
+              }
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" [disabled]="saving()">
+                {{ saving() ? 'Saving...' : 'Save Hours' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      }
+
+      @if (activeTab() === 'services') {
+        <div class="services-section card">
+          <h3>Assigned Services</h3>
+          <p class="text-muted">Services this staff member can perform.</p>
+          <div class="coming-soon">
+            <p>Service assignment management coming soon.</p>
+            <p class="text-muted">Currently, all staff can perform all active services.</p>
+          </div>
+        </div>
+      }
+    </div>
+  } @else {
+    <div class="empty-state card">
+      <p>Staff member not found.</p>
+      <a routerLink="/staff" class="btn btn-primary">Back to Staff List</a>
+    </div>
+  }
+</div>

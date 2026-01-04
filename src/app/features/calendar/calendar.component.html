@@ -1,0 +1,456 @@
+<div class="calendar-page">
+  <!-- Main Content -->
+  <div class="calendar-main">
+    <!-- Header -->
+    <header class="calendar-header">
+      <div class="calendar-header__left">
+        <h1>Schedule</h1>
+        <p class="text-muted">View and manage appointments</p>
+      </div>
+      <div class="calendar-header__right">
+        <button class="btn btn--primary" (click)="openModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+          New Appointment
+        </button>
+        <!-- View Toggle -->
+        <div class="view-toggle">
+          <button class="view-toggle__btn" [class.active]="viewMode() === 'day'" (click)="setView('day')">Day</button>
+          <button class="view-toggle__btn" [class.active]="viewMode() === 'week'" (click)="setView('week')">Week</button>
+          <button class="view-toggle__btn" [class.active]="viewMode() === 'month'" (click)="setView('month')">Month</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Navigation -->
+    <div class="week-nav">
+      <div class="week-nav__controls">
+        <button class="btn btn--icon" (click)="previous()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <button class="btn btn--icon" (click)="next()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+        <span class="week-nav__range">{{ navTitle() }}</span>
+      </div>
+      <button class="btn btn--outline" (click)="goToToday()">Today</button>
+    </div>
+
+    <!-- Loading State -->
+    @if (loading()) {
+      <div class="loading-state">
+        <div class="loading-spinner"></div>
+        <p>Loading appointments...</p>
+      </div>
+    } @else {
+      <!-- DAY VIEW -->
+      @if (viewMode() === 'day') {
+        <div class="day-view">
+          <div class="day-view__grid">
+            <div class="time-column">
+              <div class="time-column__header"></div>
+              @for (time of timeSlots; track time) {
+                <div class="time-slot"><span>{{ time }}</span></div>
+              }
+            </div>
+            <div
+              class="day-column day-column--single"
+              [class.day-column--today]="dayViewData().isToday"
+              (dragover)="onDragOver($event, dayViewData().date)"
+              (drop)="onDrop($event, dayViewData().date)"
+              (dragleave)="onDragLeave()"
+            >
+              <div class="day-column__header">
+                <span class="day-name">{{ dayViewData().dayName }}</span>
+                <span class="day-number" [class.day-number--today]="dayViewData().isToday">{{ dayViewData().dayNumber }}</span>
+              </div>
+              <div class="day-column__body">
+                @for (time of timeSlots; track time; let hourIndex = $index) {
+                  <div
+                    class="hour-line"
+                    (dblclick)="onDoubleClickTimeSlot(dayViewData().date, hourIndex)"
+                    (dragover)="onDragOver($event, dayViewData().date, hourIndex + 7)"
+                    (drop)="onDrop($event, dayViewData().date, hourIndex + 7)"
+                  ></div>
+                }
+                <!-- Drop placeholder -->
+                @if (getPlaceholderStyle(dayViewData()); as placeholderStyle) {
+                  <div
+                    class="drop-placeholder"
+                    [style.top]="placeholderStyle.top"
+                    [style.height]="placeholderStyle.height"
+                  ></div>
+                }
+                @for (event of dayViewData().events; track event.id) {
+                  <div
+                    class="calendar-event"
+                    [class.calendar-event--confirmed]="event.status === 'confirmed'"
+                    [class.calendar-event--pending]="event.status === 'pending'"
+                    [class.calendar-event--completed]="event.status === 'completed'"
+                    [class.calendar-event--no-show]="event.status === 'no_show'"
+                    [style.top]="getEventPosition(event).top"
+                    [style.height]="getEventPosition(event).height"
+                    [style.left]="getEventHorizontalPosition(event, dayViewData().events).left"
+                    [style.width]="getEventHorizontalPosition(event, dayViewData().events).width"
+                    draggable="true"
+                    (click)="openEditModal(event)"
+                    (dragstart)="onDragStart(event, $event)"
+                    (dragend)="onDragEnd()"
+                  >
+                    <span class="calendar-event__time">{{ event.startTime }} - {{ event.endTime }}</span>
+                    <span class="calendar-event__title">{{ event.title }}</span>
+                    <span class="calendar-event__client">{{ event.clientName }}</span>
+                    @if (event.status === 'pending') {
+                      <span class="calendar-event__badge">Pending</span>
+                    }
+                    @if (event.status === 'completed') {
+                      <span class="calendar-event__badge calendar-event__badge--completed">Done</span>
+                    }
+                    @if (event.status === 'no_show') {
+                      <span class="calendar-event__badge calendar-event__badge--no-show">No Show</span>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
+          @if (dayViewData().events.length === 0) {
+            <div class="empty-day"><p>No appointments scheduled for this day</p></div>
+          }
+        </div>
+      }
+
+      <!-- WEEK VIEW -->
+      @if (viewMode() === 'week') {
+        <div class="calendar-grid">
+          <div class="time-column">
+            <div class="time-column__header"></div>
+            @for (time of timeSlots; track time) {
+              <div class="time-slot"><span>{{ time }}</span></div>
+            }
+          </div>
+          @for (day of weekDays(); track day.date.toISOString(); let dayIndex = $index) {
+            <div
+              class="day-column"
+              [class.day-column--today]="day.isToday"
+              (dragover)="onDragOver($event, day.date)"
+              (drop)="onDrop($event, day.date)"
+              (dragleave)="onDragLeave()"
+            >
+              <div class="day-column__header">
+                <span class="day-name">{{ day.dayName }}</span>
+                <span class="day-number" [class.day-number--today]="day.isToday">{{ day.dayNumber }}</span>
+              </div>
+              <div class="day-column__body">
+                @for (time of timeSlots; track time; let hourIndex = $index) {
+                  <div
+                    class="hour-line"
+                    (dblclick)="onDoubleClickTimeSlot(day.date, hourIndex)"
+                    (dragover)="onDragOver($event, day.date, hourIndex + 7)"
+                    (drop)="onDrop($event, day.date, hourIndex + 7)"
+                  ></div>
+                }
+                <!-- Drop placeholder -->
+                @if (getPlaceholderStyle(day); as placeholderStyle) {
+                  <div
+                    class="drop-placeholder"
+                    [style.top]="placeholderStyle.top"
+                    [style.height]="placeholderStyle.height"
+                  ></div>
+                }
+                @for (event of day.events; track event.id) {
+                  <div
+                    class="calendar-event"
+                    [class.calendar-event--confirmed]="event.status === 'confirmed'"
+                    [class.calendar-event--pending]="event.status === 'pending'"
+                    [class.calendar-event--completed]="event.status === 'completed'"
+                    [class.calendar-event--no-show]="event.status === 'no_show'"
+                    [style.top]="getEventPosition(event).top"
+                    [style.height]="getEventPosition(event).height"
+                    [style.left]="getEventHorizontalPosition(event, day.events).left"
+                    [style.width]="getEventHorizontalPosition(event, day.events).width"
+                    draggable="true"
+                    (click)="openEditModal(event)"
+                    (dragstart)="onDragStart(event, $event)"
+                    (dragend)="onDragEnd()"
+                  >
+                    <span class="calendar-event__time">{{ event.startTime }}</span>
+                    <span class="calendar-event__title">{{ event.title }}</span>
+                    <span class="calendar-event__client">{{ event.clientName }}</span>
+                    @if (event.status === 'pending') {
+                      <span class="calendar-event__badge">Pending</span>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- MONTH VIEW -->
+      @if (viewMode() === 'month') {
+        <div class="month-view">
+          <div class="month-view__header">
+            <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+          </div>
+          <div class="month-view__grid">
+            @for (day of monthDays(); track day.date.toISOString()) {
+              <div
+                class="month-day"
+                [class.month-day--other]="!day.isCurrentMonth"
+                [class.month-day--today]="day.isToday"
+                (click)="selectMonthDay(day.date)"
+                (dblclick)="openModal(day.date); $event.stopPropagation()"
+              >
+                <span class="month-day__number" [class.month-day__number--today]="day.isToday">{{ day.date.getDate() }}</span>
+                <div class="month-day__events">
+                  @for (event of day.events.slice(0, 3); track event.id) {
+                    <div
+                      class="month-event"
+                      [class.month-event--confirmed]="event.status === 'confirmed'"
+                      [class.month-event--pending]="event.status === 'pending'"
+                      [class.month-event--completed]="event.status === 'completed'"
+                      (click)="openEditModal(event); $event.stopPropagation()"
+                    >{{ event.title }}</div>
+                  }
+                  @if (day.events.length > 3) {
+                    <span class="month-day__more">+{{ day.events.length - 3 }} more</span>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    }
+  </div>
+
+  <!-- Sidebar -->
+  <aside class="calendar-sidebar">
+    <!-- Mini Calendar -->
+    <div class="mini-calendar">
+      <div class="mini-calendar__header">
+        <button class="btn btn--icon btn--sm" (click)="previousMonth()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <span class="mini-calendar__title">{{ currentMonthYear() }}</span>
+        <button class="btn btn--icon btn--sm" (click)="nextMonth()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+      <div class="mini-calendar__weekdays">
+        <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
+      </div>
+      <div class="mini-calendar__days">
+        @for (day of miniCalendarDays(); track day.date.toISOString()) {
+          <button
+            class="mini-day"
+            [class.mini-day--other-month]="!day.isCurrentMonth"
+            [class.mini-day--today]="day.isToday"
+            [class.mini-day--selected]="day.isSelected"
+            [class.mini-day--has-events]="day.hasEvents"
+            (click)="selectDate(day.date)"
+          >
+            {{ day.date.getDate() }}
+          </button>
+        }
+      </div>
+    </div>
+
+    <!-- Upcoming Appointments -->
+    <div class="upcoming">
+      <div class="upcoming__header">
+        <h3>Upcoming</h3>
+      </div>
+      <div class="upcoming__list">
+        @for (apt of upcomingAppointments(); track apt.id) {
+          <div class="upcoming-item" [class.upcoming-item--pending]="apt.status === 'pending'">
+            <div class="upcoming-item__content">
+              <span class="upcoming-item__title">{{ apt.title }}</span>
+              <div class="upcoming-item__meta">
+                <span class="upcoming-item__avatar">{{ apt.clientInitials }}</span>
+                <span>{{ apt.clientName }}</span>
+              </div>
+              <span class="upcoming-item__date">{{ formatSessionDate(apt.date) }}</span>
+            </div>
+            <span class="upcoming-item__time">{{ apt.startTime }}</span>
+          </div>
+        }
+        @if (upcomingAppointments().length === 0) {
+          <p class="text-muted text-center">No upcoming appointments</p>
+        }
+      </div>
+    </div>
+  </aside>
+
+  <!-- Mobile FAB -->
+  <button class="fab" (click)="openModal()" aria-label="New Appointment">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 5v14M5 12h14"/>
+    </svg>
+  </button>
+</div>
+
+<!-- Appointment Modal -->
+@if (showModal()) {
+  <div class="modal-backdrop" (click)="closeModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal__header">
+        <h2>{{ isEditing() ? 'Edit Appointment' : 'New Appointment' }}</h2>
+        <button class="modal__close" (click)="closeModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal__body">
+        <!-- Date -->
+        <div class="form-group">
+          <label class="form-label">Date</label>
+          <input
+            type="date"
+            class="form-input"
+            [value]="modalDate()"
+            (input)="modalDate.set($any($event.target).value)"
+          >
+        </div>
+
+        <!-- Client -->
+        <div class="form-group">
+          <label class="form-label">Client</label>
+          <select
+            class="form-input"
+            [value]="modalClient()"
+            (change)="modalClient.set($any($event.target).value)"
+            [disabled]="isEditing()"
+          >
+            <option value="">Select a client...</option>
+            @for (client of clients(); track client.id) {
+              <option [value]="client.id">{{ client.first_name }} {{ client.last_name }}</option>
+            }
+          </select>
+          @if (clients().length === 0 && !isEditing()) {
+            <p class="form-hint">No clients yet. Add clients first.</p>
+          }
+        </div>
+
+        <!-- Service -->
+        <div class="form-group">
+          <label class="form-label">Service</label>
+          <select
+            class="form-input"
+            [value]="modalService()"
+            (change)="onServiceSelect($any($event.target).value)"
+            [disabled]="isEditing()"
+          >
+            <option value="">Select a service...</option>
+            @for (service of services(); track service.id) {
+              <option [value]="service.id">{{ service.name }} ({{ service.duration_minutes }} min)</option>
+            }
+          </select>
+        </div>
+
+        <!-- Time -->
+        <div class="form-group">
+          <label class="form-label">Time</label>
+          <div class="time-row">
+            <select
+              class="form-input"
+              (change)="onStartTimeChange($any($event.target).value)"
+            >
+              @for (time of timeOptions; track time) {
+                <option [value]="time" [selected]="time === modalStartTime()">{{ formatTimeOption(time) }}</option>
+              }
+            </select>
+            <span class="time-separator">to</span>
+            <select
+              class="form-input"
+              (change)="modalEndTime.set($any($event.target).value)"
+            >
+              @for (time of endTimeOptions(); track time) {
+                <option [value]="time" [selected]="time === modalEndTime()">{{ formatTimeOption(time) }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <!-- Status (only when editing) -->
+        @if (isEditing()) {
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <div class="status-selector">
+              <button
+                type="button"
+                class="status-btn status-btn--confirmed"
+                [class.active]="modalStatus() === 'confirmed'"
+                (click)="modalStatus.set('confirmed')"
+              >Confirmed</button>
+              <button
+                type="button"
+                class="status-btn status-btn--completed"
+                [class.active]="modalStatus() === 'completed'"
+                (click)="modalStatus.set('completed')"
+              >Completed</button>
+              <button
+                type="button"
+                class="status-btn status-btn--no-show"
+                [class.active]="modalStatus() === 'no_show'"
+                (click)="modalStatus.set('no_show')"
+              >No Show</button>
+              <button
+                type="button"
+                class="status-btn status-btn--cancelled"
+                [class.active]="modalStatus() === 'cancelled'"
+                (click)="modalStatus.set('cancelled')"
+              >Cancelled</button>
+            </div>
+          </div>
+        }
+
+        <!-- Notes -->
+        <div class="form-group">
+          <label class="form-label">Notes (optional)</label>
+          <textarea
+            class="form-input form-textarea"
+            rows="2"
+            placeholder="Add any notes..."
+            [value]="modalNotes()"
+            (input)="modalNotes.set($any($event.target).value)"
+          ></textarea>
+        </div>
+      </div>
+      <div class="modal__footer">
+        @if (isEditing()) {
+          <button
+            class="btn btn--danger"
+            (click)="deleteAppointment()"
+            [disabled]="saving() || deleting()"
+          >
+            @if (deleting()) {
+              <span class="btn-spinner"></span>
+              Deleting...
+            } @else {
+              Delete
+            }
+          </button>
+          <div class="modal__footer-spacer"></div>
+        }
+        <button class="btn btn--outline" (click)="closeModal()" [disabled]="saving() || deleting()">Cancel</button>
+        <button
+          class="btn btn--primary"
+          (click)="saveAppointment()"
+          [disabled]="saving() || deleting() || !modalClient() || !modalService() || !modalDate()"
+        >
+          @if (saving()) {
+            <span class="btn-spinner"></span>
+            Saving...
+          } @else {
+            {{ isEditing() ? 'Save Changes' : 'Create' }}
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}

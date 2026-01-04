@@ -1,0 +1,144 @@
+<div class="dashboard">
+  <!-- Page Header -->
+  <div class="page-header">
+    @if (profile$ | async; as profile) {
+      <h1>Welcome, {{ profile.first_name }}</h1>
+    } @else {
+      <h1>Welcome</h1>
+    }
+    <p>Manage your appointments and book new services</p>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-state">
+      <div class="loader"></div>
+    </div>
+  } @else {
+    <!-- Next Appointment - Feature Card -->
+    @if (upcomingAppointment(); as appointment) {
+      <section class="next-section">
+        <div class="next-card">
+          <div class="next-card__accent"></div>
+
+          <div class="next-card__header">
+            <span class="next-card__label">Next Visit</span>
+            <span class="next-card__status" [class]="'status--' + appointment.status">
+              {{ formatStatus(appointment.status) }}
+            </span>
+          </div>
+
+          <div class="next-card__body">
+            <div class="next-card__date">
+              <span class="date-day">{{ formatDayOfWeek(appointment.start_time) }}</span>
+              <span class="date-number">{{ formatDayNumber(appointment.start_time) }}</span>
+              <span class="date-month">{{ formatMonth(appointment.start_time) }}</span>
+            </div>
+
+            <div class="next-card__divider"></div>
+
+            <div class="next-card__info">
+              <h2 class="service-name">{{ appointment.service.name }}</h2>
+              <div class="time-row">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <span>{{ formatTime(appointment.start_time) }}</span>
+                <span class="separator">·</span>
+                <span>{{ appointment.service.duration_minutes }} min</span>
+              </div>
+              <div class="barber-row">
+                <div class="barber-avatar">
+                  @if (appointment.staff.avatar_url) {
+                    <img [src]="appointment.staff.avatar_url" [alt]="appointment.staff.first_name" referrerpolicy="no-referrer">
+                  } @else {
+                    {{ getInitials(appointment.staff.first_name, appointment.staff.last_name) }}
+                  }
+                </div>
+                <span>{{ appointment.staff.first_name }} {{ appointment.staff.last_name }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="next-card__footer">
+            <span class="price">{{ formatPrice(appointment.service.price) }}</span>
+            <div class="next-card__actions">
+              <button class="action-btn action-btn--secondary" (click)="rescheduleAppointment(appointment.id)">
+                Reschedule
+              </button>
+              <button class="action-btn action-btn--danger" (click)="cancelAppointment(appointment.id)">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    } @else {
+      <!-- Empty State -->
+      <section class="empty-state">
+        <div class="empty-state__icon">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <path d="M16 2v4M8 2v4M3 10h18"/>
+          </svg>
+        </div>
+        <h3>No upcoming appointments</h3>
+        <p>Ready for a fresh look? Book your next visit below.</p>
+      </section>
+    }
+
+    <!-- Book Now CTA -->
+    <a routerLink="/client/book" class="book-cta">
+      <span class="book-cta__text">Book Appointment</span>
+      <span class="book-cta__icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+      </span>
+    </a>
+
+    <!-- Past Appointments -->
+    @if (pastAppointments().length > 0) {
+      <section class="history-section">
+        <button class="history-toggle" (click)="togglePastAppointments()">
+          <span class="history-toggle__left">
+            <span class="history-toggle__label">History</span>
+            <span class="history-toggle__count">{{ pastAppointments().length }}</span>
+          </span>
+          <svg
+            class="history-toggle__chevron"
+            [class.open]="pastExpanded()"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+
+        @if (pastExpanded()) {
+          <div class="history-list">
+            @for (apt of pastAppointments(); track apt.id; let i = $index) {
+              <div class="history-item" [style.animation-delay.ms]="i * 40">
+                <div class="history-item__date">
+                  <span class="month">{{ formatShortMonth(apt.start_time) }}</span>
+                  <span class="day">{{ formatDayNumber(apt.start_time) }}</span>
+                </div>
+                <div class="history-item__details">
+                  <span class="service">{{ apt.service.name }}</span>
+                  <span class="meta">{{ formatTime(apt.start_time) }} · {{ apt.staff.first_name }}</span>
+                </div>
+                <span class="history-item__status" [class]="'status--' + apt.status">
+                  {{ formatStatus(apt.status) }}
+                </span>
+              </div>
+            }
+          </div>
+        }
+      </section>
+    }
+  }
+</div>

@@ -1,0 +1,132 @@
+<nav class="navbar">
+  <div class="navbar-brand">
+    <a routerLink="/dashboard" class="brand-link">
+      <span class="brand-icon">✂</span>
+      <span class="brand-name">BarberPal</span>
+    </a>
+  </div>
+
+  <button
+    class="mobile-toggle"
+    (click)="toggleMobileMenu()"
+    [attr.aria-expanded]="mobileMenuOpen()"
+    aria-label="Toggle navigation"
+  >
+    <span class="hamburger" [class.open]="mobileMenuOpen()"></span>
+  </button>
+
+  <div class="navbar-menu" [class.open]="mobileMenuOpen()">
+    <div class="navbar-links">
+      <!-- Client Links -->
+      @if (authService.isClient()) {
+        <a
+          routerLink="/dashboard"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: true }"
+          (click)="closeMobileMenu()"
+        >
+          Dashboard
+        </a>
+        <a
+          routerLink="/booking"
+          routerLinkActive="active"
+          (click)="closeMobileMenu()"
+        >
+          Book Appointment
+        </a>
+        <a
+          routerLink="/appointments"
+          routerLinkActive="active"
+          (click)="closeMobileMenu()"
+        >
+          My Appointments
+        </a>
+      }
+
+      <!-- Staff Links -->
+      @if (authService.isStaff()) {
+        <a
+          routerLink="/dashboard"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: true }"
+          (click)="closeMobileMenu()"
+        >
+          Dashboard
+        </a>
+        <a
+          routerLink="/calendar"
+          routerLinkActive="active"
+          (click)="closeMobileMenu()"
+        >
+          Calendar
+        </a>
+        <a
+          routerLink="/clients"
+          routerLinkActive="active"
+          (click)="closeMobileMenu()"
+        >
+          Clients
+        </a>
+      }
+
+      <!-- Owner Links -->
+      @if (authService.isOwner()) {
+        <a
+          routerLink="/dashboard"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: true }"
+          (click)="closeMobileMenu()"
+        >
+          Dashboard
+        </a>
+        <a
+          routerLink="/calendar"
+          routerLinkActive="active"
+          (click)="closeMobileMenu()"
+        >
+          Calendar
+        </a>
+        <a
+          routerLink="/clients"
+          routerLinkActive="active"
+          (click)="closeMobileMenu()"
+        >
+          Clients
+        </a>
+        <a
+          routerLink="/services"
+          routerLinkActive="active"
+          (click)="closeMobileMenu()"
+        >
+          Services
+        </a>
+        <a
+          routerLink="/staff"
+          routerLinkActive="active"
+          (click)="closeMobileMenu()"
+        >
+          Staff
+        </a>
+        <a
+          routerLink="/settings"
+          routerLinkActive="active"
+          (click)="closeMobileMenu()"
+        >
+          Settings
+        </a>
+      }
+    </div>
+
+    <div class="navbar-user">
+      @if (authService.user(); as user) {
+        <a routerLink="/profile" class="user-profile-link" (click)="closeMobileMenu()">
+          <span class="user-avatar">{{ user.first_name?.charAt(0) }}{{ user.last_name?.charAt(0) }}</span>
+          <span class="user-name">{{ user.first_name }}</span>
+        </a>
+      }
+      <button class="btn-signout" (click)="signOut()">
+        Sign Out
+      </button>
+    </div>
+  </div>
+</nav>
