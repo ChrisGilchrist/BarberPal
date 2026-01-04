@@ -77,38 +77,49 @@ self.addEventListener('fetch', function(event) {
 
 // Push notification handler - simplified for iOS compatibility
 self.addEventListener('push', function(event) {
-  console.log('[SW] Push received');
+  console.log('[SW] ====== PUSH EVENT RECEIVED ======');
 
-  if (!event.data) {
-    console.log('[SW] No push data');
-    return;
+  // Default notification data
+  let data = {
+    title: 'BarberPal',
+    message: 'You have a new notification'
+  };
+
+  // Try to parse the push data if available
+  if (event.data) {
+    try {
+      const parsed = event.data.json();
+      console.log('[SW] Push data:', JSON.stringify(parsed));
+      data = { ...data, ...parsed };
+    } catch (e) {
+      console.log('[SW] JSON parse failed, trying text');
+      try {
+        data.message = event.data.text();
+      } catch (e2) {
+        console.log('[SW] Text parse also failed');
+      }
+    }
+  } else {
+    console.log('[SW] No event.data - showing default notification');
   }
 
-  let data;
-  try {
-    data = event.data.json();
-    console.log('[SW] Push data:', data);
-  } catch (e) {
-    console.log('[SW] Could not parse push data as JSON, using text');
-    data = { title: 'BarberPal', message: event.data.text() };
-  }
-
-  // iOS-compatible notification options (no requireInteraction, no actions)
+  // iOS-compatible notification options
   const options = {
-    body: data.message || data.body,
+    body: data.message || data.body || 'New notification',
     icon: '/icons/icon-192x192.png',
     badge: '/icons/icon-72x72.png',
-    vibrate: [100, 50, 100],
     data: {
       url: data.url || '/',
       notificationId: data.notificationId,
       type: data.type
     },
-    tag: data.tag || data.type, // Prevent duplicate notifications of same type
+    tag: data.type || 'barberpal-notification',
     renotify: true
   };
 
   console.log('[SW] Showing notification:', data.title);
+
+  // ALWAYS show a notification
   event.waitUntil(
     self.registration.showNotification(data.title || 'BarberPal', options)
   );
