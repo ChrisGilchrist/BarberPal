@@ -3,6 +3,8 @@ import { isPlatformBrowser, CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
 import { BusinessService } from '../../core/services/business.service';
+import { PushNotificationService } from '../../core/services/push-notification.service';
+import { SupabaseService } from '../../core/services/supabase.service';
 import { DayOfWeek } from '../../core/models';
 
 interface DayConfig {
@@ -22,8 +24,14 @@ interface DayConfig {
 })
 export class SettingsComponent implements OnInit {
   private platformId = inject(PLATFORM_ID);
+  private supabase = inject(SupabaseService);
+  pushService = inject(PushNotificationService);
 
   activeTab = signal<'business' | 'hours' | 'invite' | 'notifications'>('business');
+
+  // Client notification settings
+  clientNotificationsEnabled = signal(true);
+  reminderHours = signal(24);
 
   // Business info
   businessName = '';
@@ -203,5 +211,63 @@ export class SettingsComponent implements OnInit {
     }));
 
     await this.businessService.setWorkingHours(userId, hours);
+  }
+
+  // Push Notification Methods
+  async togglePushNotifications(): Promise<void> {
+    if (this.pushService.isSubscribed()) {
+      const success = await this.pushService.unsubscribe();
+      if (success) {
+        this.message.set({ type: 'success', text: 'Push notifications disabled' });
+      } else {
+        this.message.set({ type: 'error', text: 'Failed to disable push notifications' });
+      }
+    } else {
+      const success = await this.pushService.subscribe();
+      if (success) {
+        this.message.set({ type: 'success', text: 'Push notifications enabled' });
+      } else if (this.pushService.permissionState() === 'denied') {
+        this.message.set({ type: 'error', text: 'Notifications blocked. Please enable in browser settings.' });
+      } else {
+        this.message.set({ type: 'error', text: 'Failed to enable push notifications' });
+      }
+    }
+  }
+
+  async sendTestNotification(): Promise<void> {
+    await this.pushService.sendTestNotification();
+    this.message.set({ type: 'success', text: 'Test notification sent!' });
+  }
+
+  async updateReminderHours(hours: number): Promise<void> {
+    this.isSaving.set(true);
+    try {
+      const user = this.authService.user();
+      if (!user) throw new Error('Not authenticated');
+
+      await this.supabase.from('users').update({ reminder_hours: hours }).eq('id', user.id);
+      this.reminderHours.set(hours);
+      this.message.set({ type: 'success', text: 'Reminder timing updated' });
+    } catch (error: any) {
+      this.message.set({ type: 'error', text: error.message || 'Failed to update' });
+    }
+    this.isSaving.set(false);
+  }
+
+  async toggleClientNotifications(): Promise<void> {
+    this.isSaving.set(true);
+    const newValue = !this.clientNotificationsEnabled();
+    try {
+      const user = this.authService.user();
+      if (!user?.business_id) throw new Error('No business found');
+
+      // This would update a business-level setting
+      // For now we just toggle the local state
+      this.clientNotificationsEnabled.set(newValue);
+      this.message.set({ type: 'success', text: newValue ? 'Client notifications enabled' : 'Client notifications disabled' });
+    } catch (error: any) {
+      this.message.set({ type: 'error', text: error.message || 'Failed to update' });
+    }
+    this.isSaving.set(false);
   }
 }

@@ -259,68 +259,170 @@
 
         <!-- Notifications Tab -->
         @if (activeTab() === 'notifications') {
+          <!-- Your Push Notifications -->
+          @if (pushService.isSupported()) {
+            <div class="settings-card card card-static">
+              <h2>Your Push Notifications</h2>
+              <p class="section-desc">Get instant alerts on your device for new bookings and updates.</p>
+
+              <div class="push-settings">
+                <div class="notification-option">
+                  <label class="toggle-label">
+                    <span class="toggle">
+                      <input
+                        type="checkbox"
+                        [checked]="pushService.isSubscribed()"
+                        (change)="togglePushNotifications()"
+                        [disabled]="pushService.isLoading() || pushService.permissionState() === 'denied'"
+                      />
+                      <span class="toggle-slider"></span>
+                    </span>
+                    <div class="option-info">
+                      <span class="option-title">Enable push notifications</span>
+                      <span class="option-desc">
+                        @switch (pushService.permissionState()) {
+                          @case ('denied') {
+                            Notifications blocked. Enable in browser settings.
+                          }
+                          @case ('granted') {
+                            Receive alerts for new bookings, cancellations, and updates
+                          }
+                          @default {
+                            Get notified about important updates instantly
+                          }
+                        }
+                      </span>
+                    </div>
+                  </label>
+                </div>
+
+                @if (pushService.isSubscribed()) {
+                  <div class="push-info">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                      <path d="M13.73 21a2 2 0 01-3.46 0"/>
+                    </svg>
+                    <span>You'll receive alerts for: new bookings, cancellations, reschedules, and reminders</span>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-outline btn-sm"
+                    (click)="sendTestNotification()"
+                    [disabled]="pushService.isLoading()"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                      <path d="M13.73 21a2 2 0 01-3.46 0"/>
+                    </svg>
+                    Send Test Notification
+                  </button>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Client Notification Settings -->
           <div class="settings-card card card-static">
-            <h2>Notification Settings</h2>
-            <p class="section-desc">Configure how and when notifications are sent to clients and staff.</p>
+            <h2>Client Notifications</h2>
+            <p class="section-desc">Configure automatic notifications sent to your clients.</p>
 
             <div class="notification-options">
               <div class="notification-option">
                 <label class="toggle-label">
                   <span class="toggle">
-                    <input type="checkbox" checked />
+                    <input
+                      type="checkbox"
+                      [checked]="clientNotificationsEnabled()"
+                      (change)="toggleClientNotifications()"
+                    />
                     <span class="toggle-slider"></span>
                   </span>
                   <div class="option-info">
-                    <span class="option-title">Appointment Confirmation</span>
-                    <span class="option-desc">Send confirmation when appointment is booked</span>
+                    <span class="option-title">Send client notifications</span>
+                    <span class="option-desc">Enable automatic notifications to clients about their appointments</span>
                   </div>
                 </label>
               </div>
 
-              <div class="notification-option">
-                <label class="toggle-label">
-                  <span class="toggle">
-                    <input type="checkbox" checked />
-                    <span class="toggle-slider"></span>
-                  </span>
-                  <div class="option-info">
-                    <span class="option-title">24-Hour Reminder</span>
-                    <span class="option-desc">Remind clients 24 hours before their appointment</span>
+              @if (clientNotificationsEnabled()) {
+                <div class="reminder-timing">
+                  <label class="form-label">Appointment Reminder Timing</label>
+                  <p class="form-hint" style="margin-bottom: var(--space-3);">When should clients receive a reminder before their appointment?</p>
+                  <div class="radio-group">
+                    <label class="radio-option" [class.active]="reminderHours() === 48">
+                      <input
+                        type="radio"
+                        name="reminderHours"
+                        [value]="48"
+                        [checked]="reminderHours() === 48"
+                        (change)="updateReminderHours(48)"
+                      />
+                      <span class="radio-label">48 hours before</span>
+                    </label>
+                    <label class="radio-option" [class.active]="reminderHours() === 24">
+                      <input
+                        type="radio"
+                        name="reminderHours"
+                        [value]="24"
+                        [checked]="reminderHours() === 24"
+                        (change)="updateReminderHours(24)"
+                      />
+                      <span class="radio-label">24 hours before</span>
+                      <span class="radio-badge">Recommended</span>
+                    </label>
+                    <label class="radio-option" [class.active]="reminderHours() === 2">
+                      <input
+                        type="radio"
+                        name="reminderHours"
+                        [value]="2"
+                        [checked]="reminderHours() === 2"
+                        (change)="updateReminderHours(2)"
+                      />
+                      <span class="radio-label">2 hours before</span>
+                    </label>
                   </div>
-                </label>
-              </div>
+                </div>
 
-              <div class="notification-option">
-                <label class="toggle-label">
-                  <span class="toggle">
-                    <input type="checkbox" checked />
-                    <span class="toggle-slider"></span>
-                  </span>
-                  <div class="option-info">
-                    <span class="option-title">1-Hour Reminder</span>
-                    <span class="option-desc">Remind clients 1 hour before their appointment</span>
+                <div class="notification-types">
+                  <label class="form-label">Notification Types</label>
+                  <div class="notification-option">
+                    <label class="toggle-label">
+                      <span class="toggle">
+                        <input type="checkbox" checked disabled />
+                        <span class="toggle-slider"></span>
+                      </span>
+                      <div class="option-info">
+                        <span class="option-title">Booking Confirmation</span>
+                        <span class="option-desc">When an appointment is booked</span>
+                      </div>
+                    </label>
                   </div>
-                </label>
-              </div>
-
-              <div class="notification-option">
-                <label class="toggle-label">
-                  <span class="toggle">
-                    <input type="checkbox" checked />
-                    <span class="toggle-slider"></span>
-                  </span>
-                  <div class="option-info">
-                    <span class="option-title">New Booking Alert</span>
-                    <span class="option-desc">Notify staff when a new appointment is booked</span>
+                  <div class="notification-option">
+                    <label class="toggle-label">
+                      <span class="toggle">
+                        <input type="checkbox" checked disabled />
+                        <span class="toggle-slider"></span>
+                      </span>
+                      <div class="option-info">
+                        <span class="option-title">Appointment Reminders</span>
+                        <span class="option-desc">Before scheduled appointments</span>
+                      </div>
+                    </label>
                   </div>
-                </label>
-              </div>
-            </div>
-
-            <div class="form-actions">
-              <button type="button" class="btn btn-primary">
-                Save Notification Settings
-              </button>
+                  <div class="notification-option">
+                    <label class="toggle-label">
+                      <span class="toggle">
+                        <input type="checkbox" checked disabled />
+                        <span class="toggle-slider"></span>
+                      </span>
+                      <div class="option-info">
+                        <span class="option-title">Cancellation Notices</span>
+                        <span class="option-desc">When appointments are cancelled</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              }
             </div>
           </div>
         }

@@ -1,8 +1,9 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { PushNotificationService } from '../../../core/services/push-notification.service';
 
 @Component({
   selector: 'app-profile',
@@ -12,21 +13,13 @@ import { AuthService } from '../../../core/services/auth.service';
   styleUrl: './profile.component.scss'
 })
 export class ProfileComponent implements OnInit {
+  pushService = inject(PushNotificationService);
+
   profileForm: FormGroup;
-  passwordForm: FormGroup;
   loading = signal(true);
   saving = signal(false);
-  savingPassword = signal(false);
   error = signal<string | null>(null);
   success = signal<string | null>(null);
-  passwordError = signal<string | null>(null);
-  passwordSuccess = signal<string | null>(null);
-  activeTab = signal<'profile' | 'password'>('profile');
-
-  // Check if user can change password (not OAuth users)
-  get canChangePassword(): boolean {
-    return !this.authService.isOAuthUser;
-  }
 
   constructor(
     private fb: FormBuilder,
@@ -38,12 +31,6 @@ export class ProfileComponent implements OnInit {
       last_name: ['', Validators.required],
       email: [{ value: '', disabled: true }],
       phone: ['']
-    });
-
-    this.passwordForm = this.fb.group({
-      current_password: ['', Validators.required],
-      new_password: ['', [Validators.required, Validators.minLength(8)]],
-      confirm_password: ['', Validators.required]
     });
   }
 
@@ -71,14 +58,6 @@ export class ProfileComponent implements OnInit {
     }
   }
 
-  setTab(tab: 'profile' | 'password') {
-    this.activeTab.set(tab);
-    this.error.set(null);
-    this.success.set(null);
-    this.passwordError.set(null);
-    this.passwordSuccess.set(null);
-  }
-
   async saveProfile() {
     if (this.profileForm.invalid) return;
 
@@ -102,30 +81,32 @@ export class ProfileComponent implements OnInit {
     }
   }
 
-  async changePassword() {
-    if (this.passwordForm.invalid) return;
+  async togglePushNotifications(): Promise<void> {
+    this.error.set(null);
+    this.success.set(null);
 
-    const { current_password, new_password, confirm_password } = this.passwordForm.value;
-
-    if (new_password !== confirm_password) {
-      this.passwordError.set('Passwords do not match');
-      return;
+    if (this.pushService.isSubscribed()) {
+      const result = await this.pushService.unsubscribe();
+      if (result) {
+        this.success.set('Push notifications disabled');
+      } else {
+        this.error.set('Failed to disable push notifications');
+      }
+    } else {
+      const result = await this.pushService.subscribe();
+      if (result) {
+        this.success.set('Push notifications enabled');
+      } else if (this.pushService.permissionState() === 'denied') {
+        this.error.set('Notifications blocked. Please enable in browser settings.');
+      } else {
+        this.error.set('Failed to enable push notifications');
+      }
     }
+  }
 
-    this.savingPassword.set(true);
-    this.passwordError.set(null);
-    this.passwordSuccess.set(null);
-
-    try {
-      await this.authService.updatePassword(new_password);
-      this.passwordSuccess.set('Password updated successfully');
-      this.passwordForm.reset();
-    } catch (error: any) {
-      console.error('Error changing password:', error);
-      this.passwordError.set(error.message || 'Failed to change password');
-    } finally {
-      this.savingPassword.set(false);
-    }
+  async sendTestNotification(): Promise<void> {
+    await this.pushService.sendTestNotification();
+    this.success.set('Test notification sent!');
   }
 
   async logout() {

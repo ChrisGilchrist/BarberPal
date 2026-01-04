@@ -1,6 +1,6 @@
 <div class="profile-page">
   <div class="page-header">
-    <h1>My Profile</h1>
+    <h1>Settings</h1>
     <span class="role-badge">{{ getRoleLabel() }}</span>
   </div>
 
@@ -10,163 +10,142 @@
       <p>Loading profile...</p>
     </div>
   } @else {
-    <div class="tabs">
-      <button
-        class="tab"
-        [class.active]="activeTab() === 'profile'"
-        (click)="setTab('profile')">
-        Profile Info
-      </button>
-      @if (canChangePassword) {
-        <button
-          class="tab"
-          [class.active]="activeTab() === 'password'"
-          (click)="setTab('password')">
-          Change Password
-        </button>
+    <!-- Profile Section -->
+    <div class="profile-section card">
+      <h2>Profile Information</h2>
+      @if (error()) {
+        <div class="alert alert-error">{{ error() }}</div>
       }
+      @if (success()) {
+        <div class="alert alert-success">{{ success() }}</div>
+      }
+
+      <form [formGroup]="profileForm" (ngSubmit)="saveProfile()">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="first_name">First Name</label>
+            <input
+              type="text"
+              id="first_name"
+              formControlName="first_name"
+              class="form-control"
+              placeholder="Enter first name">
+            @if (profileForm.get('first_name')?.touched && profileForm.get('first_name')?.errors?.['required']) {
+              <span class="error-text">First name is required</span>
+            }
+          </div>
+
+          <div class="form-group">
+            <label for="last_name">Last Name</label>
+            <input
+              type="text"
+              id="last_name"
+              formControlName="last_name"
+              class="form-control"
+              placeholder="Enter last name">
+            @if (profileForm.get('last_name')?.touched && profileForm.get('last_name')?.errors?.['required']) {
+              <span class="error-text">Last name is required</span>
+            }
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input
+            type="email"
+            id="email"
+            formControlName="email"
+            class="form-control"
+            placeholder="Email address">
+          <span class="help-text">Email cannot be changed</span>
+        </div>
+
+        <div class="form-group">
+          <label for="phone">Phone Number</label>
+          <input
+            type="tel"
+            id="phone"
+            formControlName="phone"
+            class="form-control"
+            placeholder="Enter phone number">
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" [disabled]="saving() || profileForm.invalid">
+            {{ saving() ? 'Saving...' : 'Save Changes' }}
+          </button>
+        </div>
+      </form>
     </div>
 
-    <div class="tab-content">
-      @if (activeTab() === 'profile') {
-        <div class="profile-section card">
-          @if (error()) {
-            <div class="alert alert-error">{{ error() }}</div>
-          }
-          @if (success()) {
-            <div class="alert alert-success">{{ success() }}</div>
-          }
+    <!-- Push Notifications Section -->
+    @if (pushService.isSupported()) {
+      <div class="notifications-section card">
+        <h2>Push Notifications</h2>
+        <p class="section-desc">Get instant alerts for appointment updates and reminders.</p>
 
-          <form [formGroup]="profileForm" (ngSubmit)="saveProfile()">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="first_name">First Name</label>
-                <input
-                  type="text"
-                  id="first_name"
-                  formControlName="first_name"
-                  class="form-control"
-                  placeholder="Enter first name">
-                @if (profileForm.get('first_name')?.touched && profileForm.get('first_name')?.errors?.['required']) {
-                  <span class="error-text">First name is required</span>
-                }
-              </div>
-
-              <div class="form-group">
-                <label for="last_name">Last Name</label>
-                <input
-                  type="text"
-                  id="last_name"
-                  formControlName="last_name"
-                  class="form-control"
-                  placeholder="Enter last name">
-                @if (profileForm.get('last_name')?.touched && profileForm.get('last_name')?.errors?.['required']) {
-                  <span class="error-text">Last name is required</span>
-                }
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label for="email">Email</label>
+        <div class="notification-option">
+          <label class="toggle-label">
+            <span class="toggle">
               <input
-                type="email"
-                id="email"
-                formControlName="email"
-                class="form-control"
-                placeholder="Email address">
-              <span class="help-text">Email cannot be changed</span>
+                type="checkbox"
+                [checked]="pushService.isSubscribed()"
+                (change)="togglePushNotifications()"
+                [disabled]="pushService.isLoading() || pushService.permissionState() === 'denied'"
+              />
+              <span class="toggle-slider"></span>
+            </span>
+            <div class="option-info">
+              <span class="option-title">Enable push notifications</span>
+              <span class="option-desc">
+                @switch (pushService.permissionState()) {
+                  @case ('denied') {
+                    Notifications blocked. Enable in browser settings.
+                  }
+                  @case ('granted') {
+                    Receive alerts for appointment confirmations, reminders, and cancellations
+                  }
+                  @default {
+                    Get notified about your appointments instantly
+                  }
+                }
+              </span>
             </div>
-
-            <div class="form-group">
-              <label for="phone">Phone Number</label>
-              <input
-                type="tel"
-                id="phone"
-                formControlName="phone"
-                class="form-control"
-                placeholder="Enter phone number">
-            </div>
-
-            <div class="form-actions">
-              <button type="submit" class="btn btn-primary" [disabled]="saving() || profileForm.invalid">
-                {{ saving() ? 'Saving...' : 'Save Changes' }}
-              </button>
-            </div>
-          </form>
+          </label>
         </div>
-      }
 
-      @if (activeTab() === 'password' && canChangePassword) {
-        <div class="password-section card">
-          @if (passwordError()) {
-            <div class="alert alert-error">{{ passwordError() }}</div>
-          }
-          @if (passwordSuccess()) {
-            <div class="alert alert-success">{{ passwordSuccess() }}</div>
-          }
+        @if (pushService.isSubscribed()) {
+          <div class="push-info">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 01-3.46 0"/>
+            </svg>
+            <span>You'll receive alerts for: appointment confirmations, reminders, and cancellations</span>
+          </div>
+          <button
+            type="button"
+            class="btn btn-outline btn-sm"
+            (click)="sendTestNotification()"
+            [disabled]="pushService.isLoading()"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 01-3.46 0"/>
+            </svg>
+            Send Test Notification
+          </button>
+        }
+      </div>
+    }
 
-          <form [formGroup]="passwordForm" (ngSubmit)="changePassword()">
-            <div class="form-group">
-              <label for="current_password">Current Password</label>
-              <input
-                type="password"
-                id="current_password"
-                formControlName="current_password"
-                class="form-control"
-                placeholder="Enter current password">
-              @if (passwordForm.get('current_password')?.touched && passwordForm.get('current_password')?.errors?.['required']) {
-                <span class="error-text">Current password is required</span>
-              }
-            </div>
-
-            <div class="form-group">
-              <label for="new_password">New Password</label>
-              <input
-                type="password"
-                id="new_password"
-                formControlName="new_password"
-                class="form-control"
-                placeholder="Enter new password">
-              @if (passwordForm.get('new_password')?.touched) {
-                @if (passwordForm.get('new_password')?.errors?.['required']) {
-                  <span class="error-text">New password is required</span>
-                } @else if (passwordForm.get('new_password')?.errors?.['minlength']) {
-                  <span class="error-text">Password must be at least 8 characters</span>
-                }
-              }
-            </div>
-
-            <div class="form-group">
-              <label for="confirm_password">Confirm New Password</label>
-              <input
-                type="password"
-                id="confirm_password"
-                formControlName="confirm_password"
-                class="form-control"
-                placeholder="Confirm new password">
-              @if (passwordForm.get('confirm_password')?.touched && passwordForm.get('confirm_password')?.errors?.['required']) {
-                <span class="error-text">Please confirm your password</span>
-              }
-            </div>
-
-            <div class="form-actions">
-              <button type="submit" class="btn btn-primary" [disabled]="savingPassword() || passwordForm.invalid">
-                {{ savingPassword() ? 'Updating...' : 'Update Password' }}
-              </button>
-            </div>
-          </form>
-        </div>
-      }
-    </div>
-
-    <div class="danger-zone card">
-      <h3>Account Actions</h3>
-      <div class="action-row">
-        <div class="action-info">
+    <!-- Sign Out -->
+    <div class="signout-section card">
+      <div class="signout-row">
+        <div class="signout-info">
           <strong>Sign Out</strong>
           <p>Sign out of your account on this device.</p>
         </div>
-        <button class="btn btn-secondary" (click)="logout()">Sign Out</button>
+        <button class="btn btn-outline" (click)="logout()">Sign Out</button>
       </div>
     </div>
   }

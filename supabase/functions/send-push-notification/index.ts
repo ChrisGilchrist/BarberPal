@@ -69,8 +69,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    const notification = await req.json();
-    console.log('Received notification:', notification);
+    const body = await req.json();
+    console.log('Received webhook payload:', JSON.stringify(body));
+
+    // Handle both direct calls and database webhook format
+    // Webhook sends: { type: "INSERT", table: "notifications", record: {...}, schema: "public" }
+    // Direct call sends: { user_id, type, title, message, ... }
+    const notification = body.record || body;
+    console.log('Notification data:', JSON.stringify(notification));
 
     // Validate notification type
     if (!PUSH_ENABLED_TYPES.includes(notification.type)) {
