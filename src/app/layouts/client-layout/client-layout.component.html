@@ -16,6 +16,7 @@
         </span>
         <span class="logo-text">BarberPal</span>
       </a>
+      <app-notification-bell />
     </div>
 
     <!-- Navigation -->
@@ -84,6 +85,7 @@
     </button>
     <a routerLink="/client/dashboard" class="mobile-header__title">BarberPal</a>
     <div class="mobile-header__actions">
+      <app-notification-bell />
       @if (profile$ | async; as profile) {
         <a routerLink="/client/settings" class="avatar avatar--sm" aria-label="Settings">
           @if (profile.avatar_url) {
@@ -166,4 +168,7 @@
   <main class="main">
     <router-outlet></router-outlet>
   </main>
+
+  <!-- Push Notification Prompt -->
+  <app-push-prompt />
 </div>

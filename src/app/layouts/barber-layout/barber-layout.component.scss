@@ -325,4 +325,11 @@
     padding-right: var(--space-4);
     padding-bottom: var(--space-4);
   }
+
+  @media (max-width: 768px) {
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
 }

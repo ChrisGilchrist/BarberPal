@@ -1,136 +1,289 @@
-import { Injectable, signal } from '@angular/core';
-import { SwPush } from '@angular/service-worker';
+import { Injectable, signal, computed, inject, OnDestroy } from '@angular/core';
+import { Router } from '@angular/router';
 import { SupabaseService } from './supabase.service';
+import { AuthService } from './auth.service';
+import { RealtimeChannel } from '@supabase/supabase-js';
+
+export type NotificationType =
+  | 'appointment_scheduled'
+  | 'appointment_confirmed'
+  | 'appointment_cancelled'
+  | 'appointment_updated'
+  | 'appointment_reminder'
+  | 'reschedule_requested'
+  | 'reschedule_approved'
+  | 'reschedule_declined'
+  | 'booking_requested'
+  | 'booking_approved'
+  | 'booking_declined'
+  | 'new_message'
+  | 'announcement';
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  appointment_id?: string;
+  sender_id?: string;
+  read: boolean;
+  created_at: string;
+}
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
-export class NotificationService {
-  private isSubscribed = signal(false);
-  private permissionState = signal<NotificationPermission>('default');
+export class NotificationService implements OnDestroy {
+  private supabase = inject(SupabaseService);
+  private auth = inject(AuthService);
+  private router = inject(Router);
 
-  readonly subscribed = this.isSubscribed.asReadonly();
-  readonly permission = this.permissionState.asReadonly();
+  private channel: RealtimeChannel | null = null;
 
-  // VAPID public key - replace with your own from Supabase or a push service
-  private readonly VAPID_PUBLIC_KEY = 'YOUR_VAPID_PUBLIC_KEY';
+  // Signals for reactive state
+  private _notifications = signal<Notification[]>([]);
+  private _isLoading = signal(false);
 
-  constructor(
-    private swPush: SwPush,
-    private supabase: SupabaseService
-  ) {
-    this.checkPermission();
-    this.checkSubscription();
+  // Public readonly signals
+  readonly notifications = this._notifications.asReadonly();
+  readonly isLoading = this._isLoading.asReadonly();
+
+  // Computed signals
+  readonly unreadCount = computed(() => {
+    return this._notifications().filter((n) => !n.read).length;
+  });
+
+  readonly hasUnread = computed(() => this.unreadCount() > 0);
+
+  constructor() {
+    // Subscribe when user changes
+    this.auth.user;
   }
 
-  private checkPermission() {
-    if ('Notification' in window) {
-      this.permissionState.set(Notification.permission);
-    }
+  ngOnDestroy() {
+    this.unsubscribeFromRealtime();
   }
 
-  private async checkSubscription() {
-    if (this.swPush.isEnabled) {
-      try {
-        const subscription = await this.swPush.subscription.toPromise();
-        this.isSubscribed.set(!!subscription);
-      } catch {
-        this.isSubscribed.set(false);
-      }
-    }
-  }
+  async loadNotifications(): Promise<void> {
+    const userId = this.auth.user()?.id;
+    if (!userId) return;
 
-  async requestPermission(): Promise<boolean> {
-    if (!('Notification' in window)) {
-      console.warn('Notifications not supported');
-      return false;
-    }
-
-    const permission = await Notification.requestPermission();
-    this.permissionState.set(permission);
-    return permission === 'granted';
-  }
-
-  async subscribe(userId: string): Promise<boolean> {
-    if (!this.swPush.isEnabled) {
-      console.warn('Service Worker not enabled');
-      return false;
-    }
+    this._isLoading.set(true);
 
     try {
-      const subscription = await this.swPush.requestSubscription({
-        serverPublicKey: this.VAPID_PUBLIC_KEY
-      });
-
-      // Save subscription to database
-      const subJson = subscription.toJSON();
-      const keys = subJson.keys as Record<string, string> | undefined;
-      const { error } = await this.supabase
-        .from('push_subscriptions')
-        .upsert({
-          user_id: userId,
-          endpoint: subJson.endpoint,
-          p256dh: keys?.['p256dh'],
-          auth: keys?.['auth']
-        }, {
-          onConflict: 'user_id'
-        });
+      const { data, error } = await this.supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(50);
 
       if (error) throw error;
 
-      this.isSubscribed.set(true);
-      return true;
+      this._notifications.set((data as Notification[]) || []);
+
+      // Subscribe to realtime updates
+      this.subscribeToRealtime(userId);
     } catch (error) {
-      console.error('Failed to subscribe:', error);
-      return false;
+      console.error('Error loading notifications:', error);
+    } finally {
+      this._isLoading.set(false);
     }
   }
 
-  async unsubscribe(userId: string): Promise<boolean> {
+  private subscribeToRealtime(userId: string) {
+    // Unsubscribe from existing channel
+    this.unsubscribeFromRealtime();
+
+    // Subscribe to new notifications
+    this.channel = this.supabase.client
+      .channel(`notifications:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          const newNotification = payload.new as Notification;
+          this._notifications.update((notifications) => [newNotification, ...notifications]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          const updated = payload.new as Notification;
+          this._notifications.update((notifications) =>
+            notifications.map((n) => (n.id === updated.id ? updated : n))
+          );
+        }
+      )
+      .subscribe();
+  }
+
+  private unsubscribeFromRealtime() {
+    if (this.channel) {
+      this.supabase.client.removeChannel(this.channel);
+      this.channel = null;
+    }
+  }
+
+  async markAsRead(notificationId: string): Promise<void> {
     try {
-      // Remove from database
-      await this.supabase
-        .from('push_subscriptions')
-        .delete()
-        .eq('user_id', userId);
+      const { error } = await this.supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('id', notificationId);
 
-      // Unsubscribe from browser
-      const subscription = await this.swPush.subscription.toPromise();
-      if (subscription) {
-        await subscription.unsubscribe();
-      }
+      if (error) throw error;
 
-      this.isSubscribed.set(false);
-      return true;
+      // Update local state immediately
+      this._notifications.update((notifications) =>
+        notifications.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
+      );
     } catch (error) {
-      console.error('Failed to unsubscribe:', error);
-      return false;
+      console.error('Error marking notification as read:', error);
     }
   }
 
-  // Listen for incoming messages
-  listenForMessages() {
-    this.swPush.messages.subscribe(message => {
-      console.log('Push message received:', message);
-    });
+  async markAllAsRead(): Promise<void> {
+    const userId = this.auth.user()?.id;
+    if (!userId) return;
 
-    this.swPush.notificationClicks.subscribe(click => {
-      console.log('Notification clicked:', click);
-      // Handle notification click - navigate to relevant page
-      if (click.notification.data?.url) {
-        window.open(click.notification.data.url, '_self');
-      }
-    });
+    try {
+      const { error } = await this.supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('user_id', userId)
+        .eq('read', false);
+
+      if (error) throw error;
+
+      // Update local state immediately
+      this._notifications.update((notifications) => notifications.map((n) => ({ ...n, read: true })));
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
   }
 
-  // Show local notification (for in-app notifications)
-  showLocalNotification(title: string, options?: NotificationOptions) {
-    if (this.permissionState() === 'granted') {
-      new Notification(title, {
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/icon-72x72.png',
-        ...options
-      });
+  getNotificationRoute(notification: Notification): string {
+    const isBarber = this.auth.isStaffOrOwner();
+    const baseUrl = isBarber ? '/barber' : '/client';
+
+    switch (notification.type) {
+      case 'appointment_scheduled':
+      case 'appointment_confirmed':
+      case 'appointment_cancelled':
+      case 'appointment_updated':
+      case 'appointment_reminder':
+      case 'reschedule_requested':
+      case 'reschedule_approved':
+      case 'reschedule_declined':
+        return isBarber ? `${baseUrl}/calendar` : `${baseUrl}/dashboard`;
+
+      case 'booking_requested':
+      case 'booking_approved':
+      case 'booking_declined':
+        return isBarber ? `${baseUrl}/calendar` : `${baseUrl}/dashboard`;
+
+      case 'new_message':
+        return `${baseUrl}/messages`;
+
+      case 'announcement':
+        return `${baseUrl}/dashboard`;
+
+      default:
+        return `${baseUrl}/dashboard`;
     }
+  }
+
+  async handleNotificationClick(notification: Notification): Promise<void> {
+    // Mark as read
+    if (!notification.read) {
+      await this.markAsRead(notification.id);
+    }
+
+    // Navigate to appropriate page
+    const route = this.getNotificationRoute(notification);
+    this.router.navigateByUrl(route);
+  }
+
+  getNotificationIcon(type: NotificationType): string {
+    switch (type) {
+      case 'appointment_scheduled':
+      case 'appointment_confirmed':
+        return 'calendar-check';
+      case 'appointment_cancelled':
+        return 'calendar-x';
+      case 'appointment_updated':
+        return 'calendar-edit';
+      case 'appointment_reminder':
+        return 'bell';
+      case 'reschedule_requested':
+      case 'reschedule_approved':
+      case 'reschedule_declined':
+        return 'calendar-clock';
+      case 'booking_requested':
+      case 'booking_approved':
+      case 'booking_declined':
+        return 'calendar-plus';
+      case 'new_message':
+        return 'message';
+      case 'announcement':
+        return 'megaphone';
+      default:
+        return 'bell';
+    }
+  }
+
+  getNotificationColor(type: NotificationType): 'success' | 'warning' | 'danger' | 'primary' | 'neutral' {
+    switch (type) {
+      case 'appointment_confirmed':
+      case 'reschedule_approved':
+      case 'booking_approved':
+        return 'success';
+      case 'appointment_cancelled':
+      case 'reschedule_declined':
+      case 'booking_declined':
+        return 'danger';
+      case 'reschedule_requested':
+      case 'booking_requested':
+      case 'appointment_reminder':
+        return 'warning';
+      case 'appointment_scheduled':
+      case 'appointment_updated':
+        return 'primary';
+      default:
+        return 'neutral';
+    }
+  }
+
+  formatRelativeTime(dateString: string): string {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  }
+
+  clearNotifications() {
+    this._notifications.set([]);
+    this.unsubscribeFromRealtime();
   }
 }

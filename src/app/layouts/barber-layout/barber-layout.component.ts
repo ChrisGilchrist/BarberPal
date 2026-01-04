@@ -2,11 +2,13 @@ import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { SupabaseService } from '../../core/services/supabase.service';
+import { NotificationBellComponent } from '../../shared/components/notification-bell/notification-bell.component';
+import { PushPromptComponent } from '../../shared/components/push-prompt/push-prompt.component';
 
 @Component({
   selector: 'app-barber-layout',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, NotificationBellComponent, PushPromptComponent],
   templateUrl: './barber-layout.component.html',
   styleUrl: './barber-layout.component.scss'
 })

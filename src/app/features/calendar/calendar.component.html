@@ -291,6 +291,43 @@
       <path d="M12 5v14M5 12h14"/>
     </svg>
   </button>
+
+  <!-- Mobile Bottom Sheet -->
+  <div class="mobile-sheet" [class.open]="mobileSheetOpen()">
+    <div class="mobile-sheet__backdrop" (click)="toggleMobileSheet()"></div>
+    <div class="mobile-sheet__container">
+      <button class="mobile-sheet__handle" (click)="toggleMobileSheet()">
+        <span class="mobile-sheet__bar"></span>
+        <span class="mobile-sheet__summary">{{ upcomingSummary() }}</span>
+      </button>
+      <div class="mobile-sheet__content">
+        <!-- Upcoming Appointments -->
+        <div class="upcoming">
+          <div class="upcoming__header">
+            <h3>Upcoming Appointments</h3>
+          </div>
+          <div class="upcoming__list">
+            @for (apt of upcomingAppointments(); track apt.id) {
+              <div class="upcoming-item" [class.upcoming-item--pending]="apt.status === 'pending'" (click)="openEditModal(apt); toggleMobileSheet()">
+                <div class="upcoming-item__content">
+                  <span class="upcoming-item__title">{{ apt.title }}</span>
+                  <div class="upcoming-item__meta">
+                    <span class="upcoming-item__avatar">{{ apt.clientInitials }}</span>
+                    <span>{{ apt.clientName }}</span>
+                  </div>
+                  <span class="upcoming-item__date">{{ formatSessionDate(apt.date) }}</span>
+                </div>
+                <span class="upcoming-item__time">{{ apt.startTime }}</span>
+              </div>
+            }
+            @if (upcomingAppointments().length === 0) {
+              <p class="text-muted text-center">No upcoming appointments</p>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Appointment Modal -->

@@ -1,0 +1,61 @@
+@if (isVisible()) {
+  <div class="push-prompt-backdrop" (click)="dismiss()">
+    <div class="push-prompt" (click)="$event.stopPropagation()">
+      <button class="close-btn" (click)="dismiss()" aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+
+      <div class="prompt-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+        </svg>
+      </div>
+
+      <h2>Stay Updated</h2>
+      <p>Enable push notifications to receive:</p>
+
+      <ul class="benefits">
+        <li>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Appointment reminders
+        </li>
+        <li>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Booking confirmations
+        </li>
+        <li>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Schedule changes
+        </li>
+      </ul>
+
+      <div class="actions">
+        <button
+          class="btn btn--primary"
+          (click)="enableNotifications()"
+          [disabled]="isEnabling()"
+        >
+          @if (isEnabling()) {
+            <span class="spinner"></span>
+            Enabling...
+          } @else {
+            Enable Notifications
+          }
+        </button>
+        <button class="btn btn--ghost" (click)="notNow()">
+          Not Now
+        </button>
+      </div>
+    </div>
+  </div>
+}

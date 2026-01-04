@@ -277,6 +277,13 @@ export class CalendarComponent implements OnInit {
   private draggedEvent: CalendarEvent | null = null;
   dropPlaceholder = signal<{ date: Date; hour: number; height: number } | null>(null);
 
+  // Mobile bottom sheet
+  mobileSheetOpen = signal(false);
+
+  toggleMobileSheet() {
+    this.mobileSheetOpen.update(v => !v);
+  }
+
   async ngOnInit() {
     if (window.innerWidth <= 768) {
       this.viewMode.set('day');
