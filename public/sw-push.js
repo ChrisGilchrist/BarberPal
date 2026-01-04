@@ -1,204 +1,175 @@
 /**
  * BarberPal Push Service Worker
  * Handles push notifications and click routing
+ * Simplified for iOS Safari PWA compatibility
  */
 
 const CACHE_NAME = 'barberpal-v1';
-const APP_SHELL = [
+const SHELL_ASSETS = [
   '/',
   '/index.html',
-  '/manifest.webmanifest',
+  '/manifest.webmanifest'
 ];
 
 // Install event - cache app shell
-self.addEventListener('install', (event) => {
+self.addEventListener('install', function(event) {
   console.log('[SW] Installing service worker...');
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
+    caches.open(CACHE_NAME).then(function(cache) {
       console.log('[SW] Caching app shell');
-      return cache.addAll(APP_SHELL);
+      return cache.addAll(SHELL_ASSETS);
     })
   );
+  // Activate immediately
   self.skipWaiting();
 });
 
 // Activate event - clean up old caches
-self.addEventListener('activate', (event) => {
+self.addEventListener('activate', function(event) {
   console.log('[SW] Activating service worker...');
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
+    caches.keys().then(function(cacheNames) {
       return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
+        cacheNames.map(function(cacheName) {
+          if (cacheName !== CACHE_NAME) {
+            console.log('[SW] Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
       );
     })
   );
+  // Take control of all pages immediately
   self.clients.claim();
 });
 
-// Fetch event - network first with cache fallback for navigation
-self.addEventListener('fetch', (event) => {
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches.match('/index.html');
-      })
-    );
-  }
-});
+// Fetch event - network first, fallback to cache for navigation
+self.addEventListener('fetch', function(event) {
+  // Skip non-GET requests
+  if (event.request.method !== 'GET') return;
 
-// Push event - display notification
-self.addEventListener('push', (event) => {
-  console.log('[SW] Push received:', event);
-
-  let data = {
-    title: 'BarberPal',
-    message: 'You have a new notification',
-    type: 'default',
-    url: '/client/dashboard',
-  };
-
-  if (event.data) {
-    try {
-      data = { ...data, ...event.data.json() };
-    } catch (e) {
-      console.error('[SW] Error parsing push data:', e);
-    }
-  }
-
-  const options = {
-    body: data.message,
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-72x72.png',
-    vibrate: [100, 50, 100],
-    tag: data.type,
-    renotify: true,
-    requireInteraction: shouldRequireInteraction(data.type),
-    data: {
-      url: data.url,
-      notificationId: data.notificationId,
-      appointmentId: data.appointmentId,
-      type: data.type,
-    },
-    actions: getNotificationActions(data.type),
-  };
-
-  event.waitUntil(
-    self.registration.showNotification(data.title, options)
-  );
-});
-
-// Determine if notification should require interaction
-function shouldRequireInteraction(type) {
-  const requireInteraction = [
-    'appointment_reminder',
-    'booking_requested',
-    'reschedule_requested',
-  ];
-  return requireInteraction.includes(type);
-}
-
-// Get actions based on notification type
-function getNotificationActions(type) {
-  switch (type) {
-    case 'appointment_reminder':
-      return [
-        { action: 'view', title: 'View Details' },
-        { action: 'dismiss', title: 'Dismiss' },
-      ];
-    case 'booking_requested':
-    case 'reschedule_requested':
-      return [
-        { action: 'view', title: 'Review' },
-      ];
-    default:
-      return [];
-  }
-}
-
-// Notification click event - route to appropriate page
-self.addEventListener('notificationclick', (event) => {
-  console.log('[SW] Notification clicked:', event);
-
-  const notification = event.notification;
-  const action = event.action;
-  const data = notification.data || {};
-
-  notification.close();
-
-  // Handle action buttons
-  if (action === 'dismiss') {
+  // Skip API calls and auth requests - let them go to network
+  const url = new URL(event.request.url);
+  if (url.pathname.includes('/rest/') ||
+      url.pathname.includes('/auth/') ||
+      url.pathname.includes('/functions/') ||
+      url.hostname.includes('supabase')) {
     return;
   }
 
-  // Determine URL to open
-  let url = data.url || '/';
-
-  // Override URL based on notification type for specific routing
-  if (data.type) {
-    url = getRouteForNotificationType(data.type, data);
+  // For navigation requests, try network first, fall back to cached index.html
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(function() {
+        return caches.match('/index.html');
+      })
+    );
+    return;
   }
 
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Check if app is already open
-      for (const client of clientList) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.focus();
-          client.postMessage({
-            type: 'NOTIFICATION_CLICK',
-            url: url,
-            notificationId: data.notificationId,
-          });
-          return;
-        }
-      }
-      // Open new window
-      return clients.openWindow(url);
+  // For other requests, try cache first, then network
+  event.respondWith(
+    caches.match(event.request).then(function(cached) {
+      return cached || fetch(event.request);
     })
   );
 });
 
-// Get route based on notification type
-function getRouteForNotificationType(type, data) {
-  // Most routes will be determined by the edge function based on user role
-  // This is a fallback/override for specific cases
-  switch (type) {
-    case 'appointment_scheduled':
-    case 'appointment_confirmed':
-    case 'appointment_cancelled':
-    case 'appointment_updated':
-    case 'appointment_reminder':
-    case 'reschedule_requested':
-    case 'reschedule_approved':
-    case 'reschedule_declined':
-    case 'booking_requested':
-    case 'booking_approved':
-    case 'booking_declined':
-      return data.url || '/client/dashboard';
+// Push notification handler - simplified for iOS compatibility
+self.addEventListener('push', function(event) {
+  console.log('[SW] Push received');
 
-    case 'new_message':
-      return data.url || '/client/messages';
-
-    case 'announcement':
-      return data.url || '/client/dashboard';
-
-    default:
-      return data.url || '/';
+  if (!event.data) {
+    console.log('[SW] No push data');
+    return;
   }
-}
 
-// Notification close event
-self.addEventListener('notificationclose', (event) => {
-  console.log('[SW] Notification closed:', event.notification.tag);
+  let data;
+  try {
+    data = event.data.json();
+    console.log('[SW] Push data:', data);
+  } catch (e) {
+    console.log('[SW] Could not parse push data as JSON, using text');
+    data = { title: 'BarberPal', message: event.data.text() };
+  }
+
+  // iOS-compatible notification options (no requireInteraction, no actions)
+  const options = {
+    body: data.message || data.body,
+    icon: '/icons/icon-192x192.png',
+    badge: '/icons/icon-72x72.png',
+    vibrate: [100, 50, 100],
+    data: {
+      url: data.url || '/',
+      notificationId: data.notificationId,
+      type: data.type
+    },
+    tag: data.tag || data.type, // Prevent duplicate notifications of same type
+    renotify: true
+  };
+
+  console.log('[SW] Showing notification:', data.title);
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'BarberPal', options)
+  );
 });
 
-// Message event - handle messages from the app
-self.addEventListener('message', (event) => {
-  console.log('[SW] Message received:', event.data);
+// Notification click handler
+self.addEventListener('notificationclick', function(event) {
+  console.log('[SW] Notification clicked');
+  event.notification.close();
 
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
+  const data = event.notification.data || {};
+  let targetUrl = data.url || '/';
+
+  // Route based on notification type if no explicit URL
+  if (!data.url && data.type) {
+    switch (data.type) {
+      case 'appointment_scheduled':
+      case 'appointment_confirmed':
+      case 'appointment_cancelled':
+      case 'appointment_updated':
+      case 'appointment_reminder':
+      case 'reschedule_requested':
+      case 'reschedule_approved':
+      case 'reschedule_declined':
+        targetUrl = '/client/dashboard';
+        break;
+      case 'booking_requested':
+        targetUrl = '/barber/calendar';
+        break;
+      case 'booking_approved':
+      case 'booking_declined':
+        targetUrl = '/client/dashboard';
+        break;
+      case 'new_message':
+        targetUrl = '/client/messages';
+        break;
+      case 'announcement':
+        targetUrl = '/';
+        break;
+      default:
+        targetUrl = '/';
+    }
   }
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then(function(windowClients) {
+        // Try to focus an existing window
+        for (const client of windowClients) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            client.navigate(targetUrl);
+            return client.focus();
+          }
+        }
+        // Open a new window if none exist
+        return clients.openWindow(targetUrl);
+      })
+  );
+});
+
+// Handle notification close
+self.addEventListener('notificationclose', function(event) {
+  console.log('[SW] Notification closed:', event.notification.tag);
 });
