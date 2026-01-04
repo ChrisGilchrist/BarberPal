@@ -63,7 +63,7 @@
               </div>
               <div class="history-status">
                 <span class="status-badge" [ngClass]="getStatusClass(apt.status)">
-                  {{ apt.status | titlecase }}
+                  {{ formatStatus(apt.status) }}
                 </span>
                 @if (apt.service?.price) {
                   <span class="price">{{ formatPrice(apt.service!.price) }}</span>

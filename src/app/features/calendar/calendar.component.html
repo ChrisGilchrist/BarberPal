@@ -322,13 +322,13 @@
           <label class="form-label">Client</label>
           <select
             class="form-input"
-            [value]="modalClient()"
-            (change)="modalClient.set($any($event.target).value)"
+            [ngModel]="modalClient()"
+            (ngModelChange)="modalClient.set($event)"
             [disabled]="isEditing()"
           >
             <option value="">Select a client...</option>
             @for (client of clients(); track client.id) {
-              <option [value]="client.id">{{ client.first_name }} {{ client.last_name }}</option>
+              <option [ngValue]="client.id">{{ client.first_name }} {{ client.last_name }}</option>
             }
           </select>
           @if (clients().length === 0 && !isEditing()) {
@@ -341,13 +341,13 @@
           <label class="form-label">Service</label>
           <select
             class="form-input"
-            [value]="modalService()"
-            (change)="onServiceSelect($any($event.target).value)"
+            [ngModel]="modalService()"
+            (ngModelChange)="onServiceSelect($event)"
             [disabled]="isEditing()"
           >
             <option value="">Select a service...</option>
             @for (service of services(); track service.id) {
-              <option [value]="service.id">{{ service.name }} ({{ service.duration_minutes }} min)</option>
+              <option [ngValue]="service.id">{{ service.name }} ({{ service.duration_minutes }} min)</option>
             }
           </select>
         </div>

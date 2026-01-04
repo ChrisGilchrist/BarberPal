@@ -54,9 +54,9 @@ export class ClientDetailComponent implements OnInit {
   }
 
   formatPrice(price: number): string {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-GB', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'GBP'
     }).format(price);
   }
 
@@ -68,5 +68,16 @@ export class ClientDetailComponent implements OnInit {
       case 'no_show': return 'status-unavailable';
       default: return 'status-pending';
     }
+  }
+
+  formatStatus(status: string): string {
+    const statusMap: Record<string, string> = {
+      'pending': 'Pending',
+      'confirmed': 'Confirmed',
+      'completed': 'Completed',
+      'cancelled': 'Cancelled',
+      'no_show': 'No Show'
+    };
+    return statusMap[status] || status;
   }
 }
