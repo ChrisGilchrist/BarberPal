@@ -239,17 +239,6 @@ export class SettingsComponent implements OnInit {
     this.message.set({ type: 'success', text: 'Test notification sent!' });
   }
 
-  async refreshPushSubscription(): Promise<void> {
-    // Unsubscribe first, then resubscribe
-    await this.pushService.unsubscribe();
-    const success = await this.pushService.subscribe();
-    if (success) {
-      this.message.set({ type: 'success', text: 'Push subscription refreshed! Try booking an appointment to test.' });
-    } else {
-      this.message.set({ type: 'error', text: 'Failed to refresh push subscription' });
-    }
-  }
-
   async updateReminderHours(hours: number): Promise<void> {
     this.isSaving.set(true);
     try {
