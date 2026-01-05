@@ -113,7 +113,9 @@ export class ProfileComponent implements OnInit {
     this.error.set(null);
     this.success.set(null);
 
-    const result = await this.pushService.resubscribe();
+    // Unsubscribe first, then resubscribe
+    await this.pushService.unsubscribe();
+    const result = await this.pushService.subscribe();
     if (result) {
       this.success.set('Push subscription refreshed! You should now receive notifications.');
     } else {

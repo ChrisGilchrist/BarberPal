@@ -240,7 +240,9 @@ export class SettingsComponent implements OnInit {
   }
 
   async refreshPushSubscription(): Promise<void> {
-    const success = await this.pushService.resubscribe();
+    // Unsubscribe first, then resubscribe
+    await this.pushService.unsubscribe();
+    const success = await this.pushService.subscribe();
     if (success) {
       this.message.set({ type: 'success', text: 'Push subscription refreshed! Try booking an appointment to test.' });
     } else {
