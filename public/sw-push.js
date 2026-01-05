@@ -1,22 +1,20 @@
 /**
- * BarberPal Push Service Worker
- * Handles push notifications and click routing
- * Simplified for iOS Safari PWA compatibility
+ * Push Notification Service Worker
+ * Handles incoming push notifications, click events, and app shell caching
  */
 
 const CACHE_NAME = 'barberpal-v1';
 const SHELL_ASSETS = [
   '/',
   '/index.html',
-  '/manifest.webmanifest'
+  '/manifest.json'
 ];
 
 // Install event - cache app shell
 self.addEventListener('install', function(event) {
-  console.log('[SW] Installing service worker...');
   event.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
-      console.log('[SW] Caching app shell');
+      console.log('Caching app shell');
       return cache.addAll(SHELL_ASSETS);
     })
   );
@@ -26,13 +24,12 @@ self.addEventListener('install', function(event) {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', function(event) {
-  console.log('[SW] Activating service worker...');
   event.waitUntil(
     caches.keys().then(function(cacheNames) {
       return Promise.all(
         cacheNames.map(function(cacheName) {
           if (cacheName !== CACHE_NAME) {
-            console.log('[SW] Deleting old cache:', cacheName);
+            console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -75,7 +72,7 @@ self.addEventListener('fetch', function(event) {
   );
 });
 
-// Push notification handler - identical to ptTrack (which works)
+// Push notification handler
 self.addEventListener('push', function(event) {
   if (!event.data) return;
 
@@ -96,7 +93,7 @@ self.addEventListener('push', function(event) {
       notificationId: data.notificationId,
       type: data.type
     },
-    tag: data.tag || data.type,
+    tag: data.tag || data.type, // Prevent duplicate notifications of same type
     renotify: true
   };
 
@@ -105,9 +102,7 @@ self.addEventListener('push', function(event) {
   );
 });
 
-// Notification click handler
 self.addEventListener('notificationclick', function(event) {
-  console.log('[SW] Notification clicked');
   event.notification.close();
 
   const data = event.notification.data || {};
@@ -121,6 +116,8 @@ self.addEventListener('notificationclick', function(event) {
       case 'appointment_cancelled':
       case 'appointment_updated':
       case 'appointment_reminder':
+        targetUrl = '/client/dashboard';
+        break;
       case 'reschedule_requested':
       case 'reschedule_approved':
       case 'reschedule_declined':
@@ -160,7 +157,7 @@ self.addEventListener('notificationclick', function(event) {
   );
 });
 
-// Handle notification close
+// Handle notification close (for analytics if needed)
 self.addEventListener('notificationclose', function(event) {
-  console.log('[SW] Notification closed:', event.notification.tag);
+  // Could send analytics here if desired
 });

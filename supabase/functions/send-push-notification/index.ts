@@ -26,8 +26,6 @@ const PUSH_NOTIFICATION_TYPES = [
 // VAPID keys from environment
 const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY')!;
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY')!;
-// Hardcoded mailto like ptTrack - don't rely on env var
-const VAPID_SUBJECT = 'mailto:support@barberpal.app';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -37,12 +35,6 @@ const corsHeaders = {
 serve(async (req) => {
   console.log('=== Push notification function called ===');
   console.log('Method:', req.method);
-
-  // Log VAPID key info for debugging (only first/last few chars for security)
-  const pubKeyPreview = VAPID_PUBLIC_KEY ? `${VAPID_PUBLIC_KEY.substring(0, 10)}...${VAPID_PUBLIC_KEY.substring(VAPID_PUBLIC_KEY.length - 5)}` : 'NOT SET';
-  const privKeyPreview = VAPID_PRIVATE_KEY ? `${VAPID_PRIVATE_KEY.substring(0, 5)}...${VAPID_PRIVATE_KEY.substring(VAPID_PRIVATE_KEY.length - 3)}` : 'NOT SET';
-  console.log('VAPID_PUBLIC_KEY:', pubKeyPreview, 'length:', VAPID_PUBLIC_KEY?.length);
-  console.log('VAPID_PRIVATE_KEY:', privKeyPreview, 'length:', VAPID_PRIVATE_KEY?.length);
 
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -101,26 +93,17 @@ serve(async (req) => {
 
     console.log(`Found ${subscriptions.length} subscription(s) for user`);
 
-    // Log subscription details for debugging
-    subscriptions.forEach((sub, i) => {
-      console.log(`Subscription ${i}:`, {
-        endpoint: sub.endpoint?.substring(0, 50) + '...',
-        hasP256dh: !!sub.p256dh,
-        p256dhLength: sub.p256dh?.length,
-        hasAuth: !!sub.auth,
-        authLength: sub.auth?.length,
-      });
-    });
-
-    // Get user role for URL routing
-    const { data: userData } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', record.user_id)
-      .single();
-
-    const userRole = userData?.role || 'client';
-    console.log('User role:', userRole);
+    // For message notifications, get the recipient's role to determine correct URL
+    let recipientRole: string | null = null;
+    if (record.type === 'new_message') {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', record.user_id)
+        .single();
+      recipientRole = userData?.role || null;
+      console.log('Recipient role for message notification:', recipientRole);
+    }
 
     // Build push payload
     const payload = JSON.stringify({
@@ -129,7 +112,7 @@ serve(async (req) => {
       type: record.type,
       notificationId: record.id,
       appointmentId: record.appointment_id,
-      url: getNotificationUrl(record.type, userRole)
+      url: getNotificationUrl(record.type, record.sender_id, recipientRole)
     });
 
     // Send to all subscriptions
@@ -203,7 +186,7 @@ async function sendWebPush(
       subscription.endpoint,
       VAPID_PUBLIC_KEY,
       VAPID_PRIVATE_KEY,
-      VAPID_SUBJECT
+      'mailto:support@barberpal.app'
     );
     console.log('VAPID headers created');
 
@@ -245,39 +228,40 @@ async function sendWebPush(
 }
 
 /**
- * Get the appropriate URL for a notification type based on user role
+ * Get the appropriate URL for a notification type
  */
-function getNotificationUrl(type: string, userRole: string): string {
-  const isBarber = userRole === 'owner' || userRole === 'staff';
-  const baseUrl = isBarber ? '/barber' : '/client';
-
+function getNotificationUrl(type: string, senderId?: string, recipientRole?: string | null): string {
   switch (type) {
-    // Appointment notifications
+    // Client routes
     case 'appointment_scheduled':
     case 'appointment_confirmed':
     case 'appointment_cancelled':
     case 'appointment_updated':
     case 'appointment_reminder':
-    case 'reschedule_requested':
     case 'reschedule_approved':
     case 'reschedule_declined':
-      return isBarber ? `${baseUrl}/calendar` : `${baseUrl}/dashboard`;
-
-    // Booking workflow notifications
-    case 'booking_requested':
     case 'booking_approved':
     case 'booking_declined':
-      return isBarber ? `${baseUrl}/calendar` : `${baseUrl}/dashboard`;
-
-    // Message notifications
+      return '/client/dashboard';
+    // Barber routes
+    case 'booking_requested':
+    case 'reschedule_requested':
+      return '/barber/calendar';
+    // Message routes - use recipient role to determine correct URL
     case 'new_message':
-      return `${baseUrl}/messages`;
-
-    // Announcements go to dashboard
+      if (recipientRole === 'owner' || recipientRole === 'staff') {
+        // Barber receives message from client - go to that client's chat
+        if (senderId) {
+          return `/barber/messages/${senderId}`;
+        }
+        return '/barber/messages';
+      }
+      // Client receives message - go to their messages
+      return '/client/messages';
+    // Announcements - go to dashboard
     case 'announcement':
-      return `${baseUrl}/dashboard`;
-
+      return '/';
     default:
-      return `${baseUrl}/dashboard`;
+      return '/';
   }
 }

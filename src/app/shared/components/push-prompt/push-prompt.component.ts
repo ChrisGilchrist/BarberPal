@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnDestroy, effect } from '@angular/core';
+import { Component, inject, signal, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PushNotificationService } from '../../../core/services/push-notification.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -10,7 +10,7 @@ import { AuthService } from '../../../core/services/auth.service';
   templateUrl: './push-prompt.component.html',
   styleUrl: './push-prompt.component.scss',
 })
-export class PushPromptComponent implements OnDestroy {
+export class PushPromptComponent implements OnInit, OnDestroy {
   private pushService = inject(PushNotificationService);
   private authService = inject(AuthService);
 
@@ -19,16 +19,9 @@ export class PushPromptComponent implements OnDestroy {
 
   private readonly DISMISSED_KEY = 'barberpal_push_prompt_dismissed';
   private showTimeout: ReturnType<typeof setTimeout> | null = null;
-  private hasChecked = false;
 
-  constructor() {
-    // Wait for push service to initialize before checking
-    effect(() => {
-      if (this.pushService.isInitialized() && !this.hasChecked) {
-        this.hasChecked = true;
-        this.checkShouldShow();
-      }
-    });
+  ngOnInit() {
+    this.checkShouldShow();
   }
 
   ngOnDestroy() {
@@ -37,7 +30,7 @@ export class PushPromptComponent implements OnDestroy {
     }
   }
 
-  private checkShouldShow() {
+  private async checkShouldShow() {
     // Don't show if already dismissed
     if (localStorage.getItem(this.DISMISSED_KEY)) {
       return;
@@ -47,6 +40,9 @@ export class PushPromptComponent implements OnDestroy {
     if (!this.pushService.isSupported()) {
       return;
     }
+
+    // Check subscription status
+    await this.pushService.checkSubscriptionStatus();
 
     // Don't show if already subscribed
     if (this.pushService.isSubscribed()) {
@@ -87,6 +83,15 @@ export class PushPromptComponent implements OnDestroy {
     this.isEnabling.set(true);
 
     try {
+      // Request permission first if needed
+      if (this.pushService.permissionState() !== 'granted') {
+        const granted = await this.pushService.requestPermission();
+        if (!granted) {
+          this.isEnabling.set(false);
+          return;
+        }
+      }
+
       const success = await this.pushService.subscribe();
 
       if (success) {
