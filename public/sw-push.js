@@ -75,53 +75,33 @@ self.addEventListener('fetch', function(event) {
   );
 });
 
-// Push notification handler - simplified for iOS compatibility
+// Push notification handler - identical to ptTrack (which works)
 self.addEventListener('push', function(event) {
-  console.log('[SW] ====== PUSH EVENT RECEIVED ======');
+  if (!event.data) return;
 
-  // Default notification data
-  let data = {
-    title: 'BarberPal',
-    message: 'You have a new notification'
-  };
-
-  // Try to parse the push data if available
-  if (event.data) {
-    try {
-      const parsed = event.data.json();
-      console.log('[SW] Push data:', JSON.stringify(parsed));
-      data = { ...data, ...parsed };
-    } catch (e) {
-      console.log('[SW] JSON parse failed, trying text');
-      try {
-        data.message = event.data.text();
-      } catch (e2) {
-        console.log('[SW] Text parse also failed');
-      }
-    }
-  } else {
-    console.log('[SW] No event.data - showing default notification');
+  let data;
+  try {
+    data = event.data.json();
+  } catch (e) {
+    data = { title: 'Notification', message: event.data.text() };
   }
 
-  // iOS-compatible notification options
   const options = {
-    body: data.message || data.body || 'New notification',
+    body: data.message || data.body,
     icon: '/icons/icon-192x192.png',
     badge: '/icons/icon-72x72.png',
+    vibrate: [100, 50, 100],
     data: {
       url: data.url || '/',
       notificationId: data.notificationId,
       type: data.type
     },
-    tag: data.type || 'barberpal-notification',
+    tag: data.tag || data.type,
     renotify: true
   };
 
-  console.log('[SW] Showing notification:', data.title);
-
-  // ALWAYS show a notification
   event.waitUntil(
-    self.registration.showNotification(data.title || 'BarberPal', options)
+    self.registration.showNotification(data.title, options)
   );
 });
 

@@ -26,7 +26,8 @@ const PUSH_NOTIFICATION_TYPES = [
 // VAPID keys from environment
 const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY')!;
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY')!;
-const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') || 'mailto:support@barberpal.app';
+// Hardcoded mailto like ptTrack - don't rely on env var
+const VAPID_SUBJECT = 'mailto:support@barberpal.app';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,6 +37,12 @@ const corsHeaders = {
 serve(async (req) => {
   console.log('=== Push notification function called ===');
   console.log('Method:', req.method);
+
+  // Log VAPID key info for debugging (only first/last few chars for security)
+  const pubKeyPreview = VAPID_PUBLIC_KEY ? `${VAPID_PUBLIC_KEY.substring(0, 10)}...${VAPID_PUBLIC_KEY.substring(VAPID_PUBLIC_KEY.length - 5)}` : 'NOT SET';
+  const privKeyPreview = VAPID_PRIVATE_KEY ? `${VAPID_PRIVATE_KEY.substring(0, 5)}...${VAPID_PRIVATE_KEY.substring(VAPID_PRIVATE_KEY.length - 3)}` : 'NOT SET';
+  console.log('VAPID_PUBLIC_KEY:', pubKeyPreview, 'length:', VAPID_PUBLIC_KEY?.length);
+  console.log('VAPID_PRIVATE_KEY:', privKeyPreview, 'length:', VAPID_PRIVATE_KEY?.length);
 
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
