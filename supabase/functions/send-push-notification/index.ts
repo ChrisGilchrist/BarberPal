@@ -94,6 +94,17 @@ serve(async (req) => {
 
     console.log(`Found ${subscriptions.length} subscription(s) for user`);
 
+    // Log subscription details for debugging
+    subscriptions.forEach((sub, i) => {
+      console.log(`Subscription ${i}:`, {
+        endpoint: sub.endpoint?.substring(0, 50) + '...',
+        hasP256dh: !!sub.p256dh,
+        p256dhLength: sub.p256dh?.length,
+        hasAuth: !!sub.auth,
+        authLength: sub.auth?.length,
+      });
+    });
+
     // Get user role for URL routing
     const { data: userData } = await supabase
       .from('users')

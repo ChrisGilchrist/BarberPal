@@ -109,6 +109,18 @@ export class ProfileComponent implements OnInit {
     this.success.set('Test notification sent!');
   }
 
+  async refreshPushSubscription(): Promise<void> {
+    this.error.set(null);
+    this.success.set(null);
+
+    const result = await this.pushService.resubscribe();
+    if (result) {
+      this.success.set('Push subscription refreshed! You should now receive notifications.');
+    } else {
+      this.error.set('Failed to refresh push subscription');
+    }
+  }
+
   async logout() {
     await this.authService.signOut();
     this.router.navigate(['/auth/login']);

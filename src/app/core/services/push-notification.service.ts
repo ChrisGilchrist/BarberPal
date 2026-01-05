@@ -258,6 +258,66 @@ export class PushNotificationService {
     });
   }
 
+  /**
+   * Re-subscribe to push notifications with fresh encryption keys.
+   * Call this after VAPID keys have been changed on the server.
+   */
+  async resubscribe(): Promise<boolean> {
+    const userId = this.auth.user()?.id;
+    if (!userId) {
+      console.error('User not authenticated');
+      return false;
+    }
+
+    this._isLoading.set(true);
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const existingSubscription = await registration.pushManager.getSubscription();
+
+      // Unsubscribe from existing push subscription (this clears browser-side keys)
+      if (existingSubscription) {
+        await existingSubscription.unsubscribe();
+      }
+
+      // Delete all subscriptions for this user from database
+      await this.supabase
+        .from('push_subscriptions')
+        .delete()
+        .eq('user_id', userId);
+
+      // Now subscribe fresh with current VAPID key
+      const vapidKey = this.urlBase64ToUint8Array(environment.vapidPublicKey);
+      const newSubscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: vapidKey as BufferSource,
+      });
+
+      // Save new subscription to database
+      const saved = await this.saveSubscription(userId, newSubscription);
+      if (!saved) {
+        await newSubscription.unsubscribe();
+        this._isLoading.set(false);
+        return false;
+      }
+
+      // Update user's push_notifications_enabled flag
+      await this.supabase
+        .from('users')
+        .update({ push_notifications_enabled: true })
+        .eq('id', userId);
+
+      this._isSubscribed.set(true);
+      this._isLoading.set(false);
+      console.log('Successfully re-subscribed to push notifications');
+      return true;
+    } catch (error) {
+      console.error('Error re-subscribing to push:', error);
+      this._isLoading.set(false);
+      return false;
+    }
+  }
+
   private urlBase64ToUint8Array(base64String: string): Uint8Array {
     const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
     const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
