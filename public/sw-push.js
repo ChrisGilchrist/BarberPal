@@ -7,7 +7,7 @@ const CACHE_NAME = 'barberpal-v1';
 const SHELL_ASSETS = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.webmanifest'
 ];
 
 // Install event - cache app shell
