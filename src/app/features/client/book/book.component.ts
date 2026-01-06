@@ -1,5 +1,5 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { Router } from '@angular/router';
 import { SupabaseService } from '../../../core/services/supabase.service';
 
@@ -33,6 +33,7 @@ interface WorkingHours {
 export class BookComponent implements OnInit {
   private supabase = inject(SupabaseService);
   private router = inject(Router);
+  private location = inject(Location);
 
   // State
   step = signal<1 | 2 | 3 | 4>(1);
@@ -191,7 +192,9 @@ export class BookComponent implements OnInit {
   }
 
   goBack() {
-    if (this.step() === 2) {
+    if (this.step() === 1) {
+      this.location.back();
+    } else if (this.step() === 2) {
       this.step.set(1);
       this.selectedService.set(null);
     } else if (this.step() === 3) {

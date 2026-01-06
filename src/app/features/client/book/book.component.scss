@@ -1,6 +1,13 @@
 .book-page {
   min-height: 100vh;
   background: var(--color-neutral-100);
+
+  // Negate parent layout padding to go edge-to-edge
+  margin: calc(-1 * var(--space-6));
+
+  @media (max-width: 1023px) {
+    margin: calc(-1 * var(--space-4));
+  }
 }
 
 // Header
@@ -83,6 +90,11 @@
   margin: 0 auto;
   padding: var(--space-5);
   animation: fadeIn 0.3s ease-out;
+
+  @media (max-width: 540px) {
+    max-width: 100%;
+    padding: var(--space-4) var(--space-4);
+  }
 
   &__header {
     margin-bottom: var(--space-5);
@@ -302,10 +314,6 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: var(--space-2);
-
-    @media (min-width: 400px) {
-      grid-template-columns: repeat(4, 1fr);
-    }
   }
 }
 
@@ -319,6 +327,7 @@
   color: var(--color-neutral-700);
   cursor: pointer;
   transition: all var(--transition-fast);
+  white-space: nowrap;
 
   &:hover:not(.unavailable) {
     border-color: var(--color-neutral-900);

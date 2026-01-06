@@ -64,13 +64,25 @@ export interface WorkingHours {
   is_active: boolean;
 }
 
-// Time Block (holidays, breaks, time off)
+// Time Block (holidays, breaks, time off - one-time)
 export interface TimeBlock {
   id: string;
   user_id: string | null;
   business_id: string | null;
   start_datetime: string;
   end_datetime: string;
+  reason: string | null;
+  created_at: string;
+}
+
+// Recurring Time Block (weekly repeating blocks)
+export interface RecurringTimeBlock {
+  id: string;
+  user_id: string;
+  business_id: string | null;
+  day_of_week: DayOfWeek;
+  start_time: string; // HH:mm format
+  end_time: string;   // HH:mm format
   reason: string | null;
   created_at: string;
 }

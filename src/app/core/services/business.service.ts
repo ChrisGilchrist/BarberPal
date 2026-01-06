@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { SupabaseService } from './supabase.service';
-import { Business, WorkingHours, TimeBlock, DayOfWeek } from '../models';
+import { Business, WorkingHours, TimeBlock, RecurringTimeBlock, DayOfWeek } from '../models';
 
 @Injectable({
   providedIn: 'root'
@@ -168,6 +168,59 @@ export class BusinessService {
     try {
       const { error } = await this.supabase
         .from('time_blocks')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      return { success: true, error: null };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Recurring Time Blocks (weekly repeating)
+  async getRecurringTimeBlocks(params: { userId?: string; businessId?: string }) {
+    try {
+      let query = this.supabase.from('recurring_time_blocks').select('*');
+
+      if (params.userId) {
+        query = query.eq('user_id', params.userId);
+      }
+      if (params.businessId) {
+        query = query.eq('business_id', params.businessId);
+      }
+
+      const { data, error } = await query.order('day_of_week').order('start_time');
+
+      if (error) throw error;
+
+      return { data: data as RecurringTimeBlock[], error: null };
+    } catch (error: any) {
+      return { data: null, error: error.message };
+    }
+  }
+
+  async createRecurringTimeBlock(block: Omit<RecurringTimeBlock, 'id' | 'created_at'>) {
+    try {
+      const { data, error } = await this.supabase
+        .from('recurring_time_blocks')
+        .insert(block)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return { data: data as RecurringTimeBlock, error: null };
+    } catch (error: any) {
+      return { data: null, error: error.message };
+    }
+  }
+
+  async deleteRecurringTimeBlock(id: string) {
+    try {
+      const { error } = await this.supabase
+        .from('recurring_time_blocks')
         .delete()
         .eq('id', id);
 

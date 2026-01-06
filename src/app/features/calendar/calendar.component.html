@@ -8,6 +8,12 @@
         <p class="text-muted">View and manage appointments</p>
       </div>
       <div class="calendar-header__right">
+        <button class="btn btn--outline" (click)="openBlockModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+          </svg>
+          Block Time
+        </button>
         <button class="btn btn--primary" (click)="openModal()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 5v14M5 12h14"/>
@@ -69,7 +75,7 @@
                 @for (time of timeSlots; track time; let hourIndex = $index) {
                   <div
                     class="hour-line"
-                    (dblclick)="onDoubleClickTimeSlot(dayViewData().date, hourIndex)"
+                    (dblclick)="onDoubleClickTimeSlot(dayViewData().date, hourIndex, $event)"
                     (dragover)="onDragOver($event, dayViewData().date, hourIndex + 7)"
                     (drop)="onDrop($event, dayViewData().date, hourIndex + 7)"
                   ></div>
@@ -112,10 +118,22 @@
                     }
                   </div>
                 }
+                <!-- Time Blocks -->
+                @for (block of getBlocksForDate(dayViewData().date); track block.id) {
+                  <div
+                    class="calendar-block"
+                    [style.top]="getBlockPosition(block).top"
+                    [style.height]="getBlockPosition(block).height"
+                    (click)="openEditBlockModal(block)"
+                  >
+                    <span class="calendar-block__time">{{ block.startTime }} - {{ block.endTime }}</span>
+                    <span class="calendar-block__reason">{{ block.reason }}</span>
+                  </div>
+                }
               </div>
             </div>
           </div>
-          @if (dayViewData().events.length === 0) {
+          @if (dayViewData().events.length === 0 && getBlocksForDate(dayViewData().date).length === 0) {
             <div class="empty-day"><p>No appointments scheduled for this day</p></div>
           }
         </div>
@@ -146,7 +164,7 @@
                 @for (time of timeSlots; track time; let hourIndex = $index) {
                   <div
                     class="hour-line"
-                    (dblclick)="onDoubleClickTimeSlot(day.date, hourIndex)"
+                    (dblclick)="onDoubleClickTimeSlot(day.date, hourIndex, $event)"
                     (dragover)="onDragOver($event, day.date, hourIndex + 7)"
                     (drop)="onDrop($event, day.date, hourIndex + 7)"
                   ></div>
@@ -181,6 +199,18 @@
                     @if (event.status === 'pending') {
                       <span class="calendar-event__badge">Pending</span>
                     }
+                  </div>
+                }
+                <!-- Time Blocks -->
+                @for (block of getBlocksForDate(day.date); track block.id) {
+                  <div
+                    class="calendar-block"
+                    [style.top]="getBlockPosition(block).top"
+                    [style.height]="getBlockPosition(block).height"
+                    (click)="openEditBlockModal(block)"
+                  >
+                    <span class="calendar-block__time">{{ block.startTime }}</span>
+                    <span class="calendar-block__reason">{{ block.reason }}</span>
                   </div>
                 }
               </div>
@@ -489,5 +519,161 @@
         </button>
       </div>
     </div>
+  </div>
+}
+
+<!-- Block Time Modal -->
+@if (showBlockModal()) {
+  <div class="modal-backdrop" (click)="closeBlockModal()">
+    <div class="modal modal--sm" (click)="$event.stopPropagation()">
+      <div class="modal__header">
+        <h2>{{ isEditingBlock() ? 'Edit Time Block' : 'Block Time' }}</h2>
+        <button class="modal__close" (click)="closeBlockModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal__body">
+        <!-- Recurring Toggle -->
+        @if (!isEditingBlock()) {
+          <div class="form-group">
+            <label class="toggle-row">
+              <span class="toggle">
+                <input
+                  type="checkbox"
+                  [checked]="blockIsRecurring()"
+                  (change)="blockIsRecurring.set($any($event.target).checked)"
+                >
+                <span class="toggle-slider"></span>
+              </span>
+              <span class="toggle-label-text">Repeat weekly</span>
+            </label>
+          </div>
+        }
+
+        <!-- Date or Day selector -->
+        @if (blockIsRecurring()) {
+          <div class="form-group">
+            <label class="form-label">Day</label>
+            <select
+              class="form-input"
+              [value]="blockRecurringDay()"
+              (change)="blockRecurringDay.set(+$any($event.target).value)"
+            >
+              @for (day of dayNames; track day; let i = $index) {
+                <option [value]="i">{{ day }}</option>
+              }
+            </select>
+          </div>
+        } @else {
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input
+              type="date"
+              class="form-input"
+              [value]="blockDate()"
+              (input)="blockDate.set($any($event.target).value)"
+            >
+          </div>
+        }
+
+        <!-- Time -->
+        <div class="form-group">
+          <label class="form-label">Time</label>
+          <div class="time-row">
+            <select
+              class="form-input"
+              [value]="blockStartTime()"
+              (change)="blockStartTime.set($any($event.target).value)"
+            >
+              @for (time of timeOptions; track time) {
+                <option [value]="time" [selected]="time === blockStartTime()">{{ formatTimeOption(time) }}</option>
+              }
+            </select>
+            <span class="time-separator">to</span>
+            <select
+              class="form-input"
+              [value]="blockEndTime()"
+              (change)="blockEndTime.set($any($event.target).value)"
+            >
+              @for (time of timeOptions; track time) {
+                <option [value]="time" [selected]="time === blockEndTime()">{{ formatTimeOption(time) }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <!-- Reason -->
+        <div class="form-group">
+          <label class="form-label">Reason (optional)</label>
+          <input
+            type="text"
+            class="form-input"
+            placeholder="e.g., Lunch break, Personal time..."
+            [value]="blockReason()"
+            (input)="blockReason.set($any($event.target).value)"
+          >
+          <div class="quick-reasons">
+            <button type="button" class="quick-reason" (click)="blockReason.set('Lunch Break')">Lunch Break</button>
+            <button type="button" class="quick-reason" (click)="blockReason.set('Personal Time')">Personal Time</button>
+            <button type="button" class="quick-reason" (click)="blockReason.set('Break')">Break</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal__footer">
+        @if (isEditingBlock()) {
+          <button
+            class="btn btn--danger"
+            (click)="deleteTimeBlock()"
+            [disabled]="savingBlock() || deletingBlock()"
+          >
+            @if (deletingBlock()) {
+              <span class="btn-spinner"></span>
+              Deleting...
+            } @else {
+              Delete
+            }
+          </button>
+          <div class="modal__footer-spacer"></div>
+        }
+        <button class="btn btn--outline" (click)="closeBlockModal()" [disabled]="savingBlock() || deletingBlock()">Cancel</button>
+        <button
+          class="btn btn--primary"
+          (click)="saveTimeBlock()"
+          [disabled]="savingBlock() || deletingBlock() || !blockDate()"
+        >
+          @if (savingBlock()) {
+            <span class="btn-spinner"></span>
+            Saving...
+          } @else {
+            {{ isEditingBlock() ? 'Save Changes' : 'Block Time' }}
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Quick Action Menu -->
+@if (showQuickMenu()) {
+  <div class="quick-menu-backdrop" (click)="closeQuickMenu()"></div>
+  <div
+    class="quick-menu"
+    [style.top.px]="quickMenuPosition().top"
+    [style.left.px]="quickMenuPosition().left"
+  >
+    <button class="quick-menu__item" (click)="quickMenuSelectAppointment()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+      New Appointment
+    </button>
+    <button class="quick-menu__item" (click)="quickMenuSelectBlock()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+      </svg>
+      Block Time
+    </button>
   </div>
 }

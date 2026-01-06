@@ -102,7 +102,7 @@
         } @else {
           <div class="schedule-list">
             @for (apt of todaysAppointments(); track apt.id) {
-              <div class="schedule-item card">
+              <a [routerLink]="['/barber/clients', apt.client?.id]" class="schedule-item card">
                 <div class="schedule-time">
                   {{ formatTime(apt.start_time) }}
                 </div>
@@ -117,10 +117,12 @@
                     {{ apt.status }}
                   </span>
                 </div>
-                <div class="schedule-actions">
-                  <button class="btn btn-primary btn-sm">Check In</button>
+                <div class="schedule-chevron">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18l6-6-6-6"/>
+                  </svg>
                 </div>
-              </div>
+              </a>
             }
           </div>
         }

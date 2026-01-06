@@ -5,7 +5,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { BusinessService } from '../../core/services/business.service';
 import { PushNotificationService } from '../../core/services/push-notification.service';
 import { SupabaseService } from '../../core/services/supabase.service';
-import { DayOfWeek } from '../../core/models';
+import { DayOfWeek, RecurringTimeBlock } from '../../core/models';
 
 interface DayConfig {
   day: DayOfWeek;
@@ -59,6 +59,27 @@ export class SettingsComponent implements OnInit {
     { day: 6, name: 'Saturday', isActive: true, startTime: '10:00', endTime: '16:00' },
   ]);
 
+  // Recurring Time blocks
+  recurringBlocks = signal<RecurringTimeBlock[]>([]);
+  showBlockModal = signal(false);
+  blockDay = signal<number>(1); // 0=Sun, 1=Mon, etc.
+  blockStartTime = signal('12:00');
+  blockEndTime = signal('13:00');
+  blockReason = signal('');
+  savingBlock = signal(false);
+  dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  // Time options for dropdown (7 AM to 10 PM in 15-min increments)
+  timeOptions = Array.from({ length: 61 }, (_, i) => {
+    const totalMinutes = (7 * 60) + (i * 15);
+    const hour = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${hour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  }).filter(t => {
+    const [h] = t.split(':').map(Number);
+    return h <= 22;
+  });
+
   isLoading = signal(false);
   isSaving = signal(false);
   message = signal<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -106,9 +127,26 @@ export class SettingsComponent implements OnInit {
         // No working hours exist - auto-save the defaults for existing barbers
         await this.initializeDefaultWorkingHours(user.id);
       }
+
+      // Load time blocks
+      await this.loadTimeBlocks();
     }
 
     this.isLoading.set(false);
+  }
+
+  async loadTimeBlocks() {
+    const user = this.authService.user();
+    if (!user) return;
+
+    try {
+      const { data } = await this.businessService.getRecurringTimeBlocks({ userId: user.id });
+      if (data) {
+        this.recurringBlocks.set(data);
+      }
+    } catch (error) {
+      console.error('Error loading recurring time blocks:', error);
+    }
   }
 
   setActiveTab(tab: 'business' | 'hours' | 'invite' | 'notifications') {
@@ -269,5 +307,64 @@ export class SettingsComponent implements OnInit {
       this.message.set({ type: 'error', text: error.message || 'Failed to update' });
     }
     this.isSaving.set(false);
+  }
+
+  // Recurring Time Block Methods
+  openBlockModal() {
+    this.blockDay.set(1); // Default to Monday
+    this.blockStartTime.set('12:00');
+    this.blockEndTime.set('13:00');
+    this.blockReason.set('');
+    this.showBlockModal.set(true);
+  }
+
+  closeBlockModal() {
+    this.showBlockModal.set(false);
+  }
+
+  async saveTimeBlock() {
+    const user = this.authService.user();
+    if (!user) return;
+
+    this.savingBlock.set(true);
+    try {
+      await this.businessService.createRecurringTimeBlock({
+        user_id: user.id,
+        business_id: user.business_id || null,
+        day_of_week: this.blockDay() as DayOfWeek,
+        start_time: this.blockStartTime(),
+        end_time: this.blockEndTime(),
+        reason: this.blockReason() || null
+      });
+
+      await this.loadTimeBlocks();
+      this.closeBlockModal();
+      this.message.set({ type: 'success', text: 'Recurring time block added' });
+    } catch (error: any) {
+      this.message.set({ type: 'error', text: error.message || 'Failed to add time block' });
+    } finally {
+      this.savingBlock.set(false);
+    }
+  }
+
+  async deleteTimeBlock(blockId: string) {
+    try {
+      await this.businessService.deleteRecurringTimeBlock(blockId);
+      await this.loadTimeBlocks();
+      this.message.set({ type: 'success', text: 'Recurring time block deleted' });
+    } catch (error: any) {
+      this.message.set({ type: 'error', text: error.message || 'Failed to delete time block' });
+    }
+  }
+
+  formatTimeOption(time: string): string {
+    const [hours, minutes] = time.split(':').map(Number);
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHour = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+    return `${displayHour}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+  }
+
+  formatBlockTime(time: string): string {
+    return this.formatTimeOption(time);
   }
 }

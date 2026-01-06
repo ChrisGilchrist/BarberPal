@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AppointmentService } from '../../core/services/appointment.service';
 import { AuthService } from '../../core/services/auth.service';
-import { Appointment, AppointmentStatus, Service, UserProfile } from '../../core/models';
+import { BusinessService } from '../../core/services/business.service';
+import { Appointment, AppointmentStatus, Service, UserProfile, TimeBlock, RecurringTimeBlock } from '../../core/models';
 import { SupabaseService } from '../../core/services/supabase.service';
 
 type ViewMode = 'day' | 'week' | 'month';
@@ -43,6 +44,7 @@ interface DayColumn {
 export class CalendarComponent implements OnInit {
   private appointmentService = inject(AppointmentService);
   private authService = inject(AuthService);
+  private businessService = inject(BusinessService);
   private supabase = inject(SupabaseService);
 
   currentDate = signal(new Date());
@@ -54,6 +56,8 @@ export class CalendarComponent implements OnInit {
   appointments = signal<Appointment[]>([]);
   clients = signal<UserProfile[]>([]);
   services = signal<Service[]>([]);
+  timeBlocks = signal<TimeBlock[]>([]);
+  recurringTimeBlocks = signal<RecurringTimeBlock[]>([]);
 
   // Modal state
   showModal = signal(false);
@@ -68,7 +72,28 @@ export class CalendarComponent implements OnInit {
   saving = signal(false);
   deleting = signal(false);
 
+  // Block modal state
+  showBlockModal = signal(false);
+  editingBlockId = signal<string | null>(null);
+  blockDate = signal<string>('');
+  blockStartTime = signal('12:00');
+  blockEndTime = signal('13:00');
+  blockReason = signal<string>('');
+  blockIsRecurring = signal(false);
+  blockRecurringDay = signal<number>(1); // 0=Sun, 1=Mon, etc.
+  savingBlock = signal(false);
+  deletingBlock = signal(false);
+
+  dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
   isEditing = computed(() => this.editingAppointmentId() !== null);
+  isEditingBlock = computed(() => this.editingBlockId() !== null);
+
+  // Quick action menu for double-click
+  showQuickMenu = signal(false);
+  quickMenuPosition = signal<{ top: number; left: number }>({ top: 0, left: 0 });
+  pendingSlotDate = signal<Date | null>(null);
+  pendingSlotHour = signal<number | null>(null);
 
   timeSlots = Array.from({ length: 16 }, (_, i) => {
     const hour = i + 7; // 7 AM to 10 PM
@@ -124,6 +149,36 @@ export class CalendarComponent implements OnInit {
       e.status !== 'cancelled'
     );
   });
+
+  // Time blocks for display
+  // One-time blocks converted to display format
+  calendarBlocks = computed(() => {
+    return this.timeBlocks().map(block => ({
+      id: block.id,
+      date: new Date(block.start_datetime),
+      startTime: this.formatTimeDisplay(new Date(block.start_datetime)),
+      endTime: this.formatTimeDisplay(new Date(block.end_datetime)),
+      reason: block.reason || 'Blocked',
+      isRecurring: false,
+      originalBlock: block
+    }));
+  });
+
+  // Recurring blocks - need to generate instances for visible dates
+  recurringBlocksForDate = (date: Date) => {
+    const dayOfWeek = date.getDay();
+    return this.recurringTimeBlocks()
+      .filter(block => block.day_of_week === dayOfWeek)
+      .map(block => ({
+        id: block.id,
+        date: date,
+        startTime: this.formatTimeOption(block.start_time),
+        endTime: this.formatTimeOption(block.end_time),
+        reason: block.reason || 'Blocked',
+        isRecurring: true,
+        originalRecurringBlock: block
+      }));
+  };
 
   weekStart = computed(() => {
     const date = new Date(this.currentDate());
@@ -292,7 +347,8 @@ export class CalendarComponent implements OnInit {
     await Promise.all([
       this.loadAppointments(),
       this.loadClients(),
-      this.loadServices()
+      this.loadServices(),
+      this.loadTimeBlocks()
     ]);
   }
 
@@ -365,6 +421,27 @@ export class CalendarComponent implements OnInit {
     }
   }
 
+  async loadTimeBlocks() {
+    const user = this.authService.user();
+    if (!user) return;
+
+    try {
+      const [oneTimeResult, recurringResult] = await Promise.all([
+        this.businessService.getTimeBlocks({ userId: user.id }),
+        this.businessService.getRecurringTimeBlocks({ userId: user.id })
+      ]);
+
+      if (oneTimeResult.data) {
+        this.timeBlocks.set(oneTimeResult.data);
+      }
+      if (recurringResult.data) {
+        this.recurringTimeBlocks.set(recurringResult.data);
+      }
+    } catch (error) {
+      console.error('Error loading time blocks:', error);
+    }
+  }
+
   openModal(date?: Date, hour?: number) {
     const targetDate = date || new Date();
     this.editingAppointmentId.set(null);
@@ -388,9 +465,41 @@ export class CalendarComponent implements OnInit {
     this.showModal.set(true);
   }
 
-  onDoubleClickTimeSlot(date: Date, hourIndex: number) {
+  onDoubleClickTimeSlot(date: Date, hourIndex: number, event: MouseEvent) {
     const hour = hourIndex + 7;
-    this.openModal(date, hour);
+    this.pendingSlotDate.set(date);
+    this.pendingSlotHour.set(hour);
+
+    // Position the menu near the click
+    this.quickMenuPosition.set({
+      top: event.clientY,
+      left: event.clientX
+    });
+    this.showQuickMenu.set(true);
+  }
+
+  closeQuickMenu() {
+    this.showQuickMenu.set(false);
+    this.pendingSlotDate.set(null);
+    this.pendingSlotHour.set(null);
+  }
+
+  quickMenuSelectAppointment() {
+    const date = this.pendingSlotDate();
+    const hour = this.pendingSlotHour();
+    this.closeQuickMenu();
+    if (date && hour !== null) {
+      this.openModal(date, hour);
+    }
+  }
+
+  quickMenuSelectBlock() {
+    const date = this.pendingSlotDate();
+    const hour = this.pendingSlotHour();
+    this.closeQuickMenu();
+    if (date && hour !== null) {
+      this.openBlockModal(date, hour);
+    }
   }
 
   openEditModal(event: CalendarEvent) {
@@ -477,6 +586,126 @@ export class CalendarComponent implements OnInit {
     } finally {
       this.deleting.set(false);
     }
+  }
+
+  // Time Block Modal Methods
+  openBlockModal(date?: Date, hour?: number) {
+    const targetDate = date || new Date();
+    this.editingBlockId.set(null);
+    this.blockDate.set(this.formatDateForInput(targetDate));
+    this.blockReason.set('');
+    this.blockIsRecurring.set(false);
+    this.blockRecurringDay.set(targetDate.getDay());
+
+    if (hour !== undefined) {
+      const startTime = `${hour.toString().padStart(2, '0')}:00`;
+      const endHour = hour + 1;
+      const endTime = `${endHour.toString().padStart(2, '0')}:00`;
+      this.blockStartTime.set(startTime);
+      this.blockEndTime.set(endTime);
+    } else {
+      this.blockStartTime.set('12:00');
+      this.blockEndTime.set('13:00');
+    }
+
+    this.showBlockModal.set(true);
+  }
+
+  openEditBlockModal(block: { id: string; date: Date; startTime: string; endTime: string; reason: string; isRecurring: boolean; originalBlock?: TimeBlock; originalRecurringBlock?: RecurringTimeBlock }) {
+    this.editingBlockId.set(block.id);
+    this.blockIsRecurring.set(block.isRecurring);
+
+    if (block.isRecurring && block.originalRecurringBlock) {
+      this.blockRecurringDay.set(block.originalRecurringBlock.day_of_week);
+      this.blockStartTime.set(block.originalRecurringBlock.start_time);
+      this.blockEndTime.set(block.originalRecurringBlock.end_time);
+      this.blockReason.set(block.originalRecurringBlock.reason || '');
+    } else if (block.originalBlock) {
+      this.blockDate.set(this.formatDateForInput(block.date));
+      this.blockStartTime.set(this.formatTimeForInput(new Date(block.originalBlock.start_datetime)));
+      this.blockEndTime.set(this.formatTimeForInput(new Date(block.originalBlock.end_datetime)));
+      this.blockReason.set(block.originalBlock.reason || '');
+    }
+
+    this.showBlockModal.set(true);
+  }
+
+  closeBlockModal() {
+    this.showBlockModal.set(false);
+    this.editingBlockId.set(null);
+  }
+
+  async saveTimeBlock() {
+    const user = this.authService.user();
+    if (!user) return;
+
+    this.savingBlock.set(true);
+    try {
+      if (this.blockIsRecurring()) {
+        // Create recurring block
+        await this.businessService.createRecurringTimeBlock({
+          user_id: user.id,
+          business_id: user.business_id || null,
+          day_of_week: this.blockRecurringDay() as 0 | 1 | 2 | 3 | 4 | 5 | 6,
+          start_time: this.blockStartTime(),
+          end_time: this.blockEndTime(),
+          reason: this.blockReason() || null
+        });
+      } else {
+        // Create one-time block
+        const startDateTime = this.combineDateTime(this.blockDate(), this.blockStartTime());
+        const endDateTime = this.combineDateTime(this.blockDate(), this.blockEndTime());
+
+        await this.businessService.createTimeBlock({
+          user_id: user.id,
+          business_id: user.business_id || null,
+          start_datetime: startDateTime.toISOString(),
+          end_datetime: endDateTime.toISOString(),
+          reason: this.blockReason() || null
+        });
+      }
+
+      await this.loadTimeBlocks();
+      this.closeBlockModal();
+    } catch (error) {
+      console.error('Error saving time block:', error);
+    } finally {
+      this.savingBlock.set(false);
+    }
+  }
+
+  async deleteTimeBlock() {
+    const blockId = this.editingBlockId();
+    if (!blockId) return;
+
+    this.deletingBlock.set(true);
+    try {
+      if (this.blockIsRecurring()) {
+        await this.businessService.deleteRecurringTimeBlock(blockId);
+      } else {
+        await this.businessService.deleteTimeBlock(blockId);
+      }
+      await this.loadTimeBlocks();
+      this.closeBlockModal();
+    } catch (error) {
+      console.error('Error deleting time block:', error);
+    } finally {
+      this.deletingBlock.set(false);
+    }
+  }
+
+  getBlocksForDate(date: Date) {
+    const oneTimeBlocks = this.calendarBlocks().filter(b => this.isSameDay(b.date, date));
+    const recurringBlocks = this.recurringBlocksForDate(date);
+    return [...oneTimeBlocks, ...recurringBlocks];
+  }
+
+  getBlockPosition(block: { startTime: string; endTime: string }): { top: string; height: string } {
+    const startHour = this.parseTime(block.startTime);
+    const endHour = this.parseTime(block.endTime);
+    const top = (startHour - 7) * 60;
+    const height = Math.max((endHour - startHour) * 60, 30);
+    return { top: `${top}px`, height: `${height}px` };
   }
 
   // Drag and drop

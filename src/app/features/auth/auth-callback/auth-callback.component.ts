@@ -272,14 +272,39 @@ export class AuthCallbackComponent implements OnInit, OnDestroy {
       this.barberName.set(pendingBarberName);
     }
 
+    // Quick check: if already initialized and has profile with role, redirect immediately
+    if (this.supabase.isInitialized && this.supabase.currentProfile?.role) {
+      const profile = this.supabase.currentProfile;
+      if (profile.role !== 'client' || profile.business_id) {
+        this.clearPendingData();
+        this.redirectToDashboard(profile.role as UserRole);
+        return;
+      }
+    }
+
     // Wait for Supabase to initialize
     this.subscription = this.supabase.initialized$.pipe(
       filter(init => init),
       take(1)
     ).subscribe(async () => {
-      // Give Supabase a moment to process tokens
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Check if we already have a valid session and profile
+      const profile = this.supabase.currentProfile;
 
+      // Fast path: user is already logged in with a role
+      if (profile?.role && profile.role !== 'client') {
+        this.clearPendingData();
+        this.redirectToDashboard(profile.role as UserRole);
+        return;
+      }
+
+      if (profile?.role === 'client' && profile.business_id) {
+        this.clearPendingData();
+        this.redirectToDashboard('client');
+        return;
+      }
+
+      // Slow path: need to wait for OAuth tokens to be processed
+      // This only applies to fresh OAuth callbacks
       const session = await this.supabase.client.auth.getSession();
 
       if (!session.data.session) {
@@ -288,20 +313,22 @@ export class AuthCallbackComponent implements OnInit, OnDestroy {
         return;
       }
 
-      // Wait for profile to load
-      await this.waitForProfile();
+      // If we don't have a profile yet, wait for it to load
+      if (!profile) {
+        await this.waitForProfile();
+      }
 
-      const profile = this.supabase.currentProfile;
+      const loadedProfile = this.supabase.currentProfile;
 
-      if (profile?.role && profile.role !== 'client') {
+      if (loadedProfile?.role && loadedProfile.role !== 'client') {
         // User already has a role - redirect to dashboard
         this.clearPendingData();
-        this.redirectToDashboard(profile.role as UserRole);
+        this.redirectToDashboard(loadedProfile.role as UserRole);
         return;
       }
 
       // Check if client has a business_id (linked to a barber)
-      if (profile?.role === 'client' && profile.business_id) {
+      if (loadedProfile?.role === 'client' && loadedProfile.business_id) {
         this.clearPendingData();
         this.redirectToDashboard('client');
         return;
